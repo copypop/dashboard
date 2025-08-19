@@ -1,41 +1,53 @@
 # CAAT Digital Marketing Dashboard
 
-A modern, AI-powered digital marketing performance dashboard for the CAAT growth marketing team.
+A comprehensive, real-time digital marketing analytics dashboard for CAAT Pension Plan. This executive dashboard provides instant insights into website performance, social media engagement, email marketing effectiveness, and lead generation metrics.
 
 ## 🚀 Features
 
-- **Dynamic Data Loading**: Upload Excel files to instantly visualize your marketing data
-- **AI-Powered Insights**: Smart analysis with forward-thinking recommendations
-- **Real-time Visualizations**: Interactive charts using Recharts
-- **Period Comparisons**: Quarter-over-quarter and year-over-year analysis
-- **Target Tracking**: Monitor performance against quarterly and annual goals
-- **Multi-channel Analytics**: Website, traffic sources, social media, email, and leads
-- **Responsive Design**: Works seamlessly on desktop, tablet, and mobile
-- **Error Resilience**: Smart fallbacks and comprehensive error handling
+### Real-Time Data Integration
+- **Automatic Excel Monitoring**: Watches `CAAT_Dashboard_Data_2025.xlsx` for changes
+- **Instant Updates**: Dashboard refreshes automatically when Excel data changes
+- **WebSocket Communication**: Real-time synchronization between server and client
+- **No Manual Upload Required**: Data flows seamlessly from Excel to dashboard
+
+### Interactive Dashboard Components
+- **Dynamic Period Selection**: Switch between Q1, Q2, Q3, Q4, and full Year views
+- **Smart Comparisons**: Automatic period-over-period comparisons
+- **Multi-Tab Interface**: Organized views for different marketing channels
+- **Responsive Design**: Works on desktop, tablet, and mobile devices
+
+### Dashboard Tabs
+- **Executive Summary**: KPIs, trends, and quarterly performance
+- **Website Analytics**: Sessions, pageviews, bounce rates, traffic sources
+- **Social Media**: Platform metrics, engagement rates, impressions
+- **Email Marketing**: Campaign performance, open rates, click rates
+- **Leads & Pipeline**: Funnel visualization, conversion tracking
 
 ## 📋 Prerequisites
 
 - Node.js 18+ installed
-- Your Excel data file: `CAAT_Dashboard_Data_2025.xlsx`
+- Excel file: `CAAT_Dashboard_Data_2025.xlsx` in parent directory (`C:\dashboard\`)
 
-## 🛠️ Installation
+## 🛠️ Installation & Running
 
-1. Clone or navigate to the project directory:
-```bash
-cd caat-dashboard
-```
+### Quick Start
 
-2. Install dependencies:
+1. **Install dependencies**:
 ```bash
 npm install
 ```
 
-3. Start the development server:
+2. **Start the file watcher server** (Terminal 1):
+```bash
+npm run server
+```
+
+3. **Start the development server** (Terminal 2):
 ```bash
 npm run dev
 ```
 
-4. Open your browser to [http://localhost:5173](http://localhost:5173)
+4. **Open your browser** to [http://localhost:5173](http://localhost:5173)
 
 ## 📊 Excel File Structure
 
