@@ -1,0 +1,1447 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  AreaChart,
+  Area,
+  RadarChart,
+  Radar,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  ComposedChart
+} from 'recharts';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  ArrowUpRight, 
+  ArrowDownRight,
+  Users,
+  Globe,
+  Mail,
+  Share2,
+  Target,
+  BarChart3,
+  Activity,
+  CheckCircle,
+  AlertCircle,
+  Info,
+  ChevronRight,
+  ChevronDown,
+  RefreshCw,
+  Download,
+  Settings,
+  Eye,
+  MousePointer,
+  ArrowRight
+} from 'lucide-react';
+import { dataService } from '../services/dataService';
+import type { DashboardData } from '../types/dashboard';
+
+type TabType = 'overview' | 'website' | 'social' | 'email' | 'leads' | 'trends' | 'quarterly' | 'yoy';
+type PeriodType = 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'Year';
+type ChartView = 'quarterly' | 'monthly' | 'yoy' | 'annual' | 'all' | 'traffic' | 'engagement' | 'conversion';
+
+interface ExecutiveDashboardProps {
+  initialData?: DashboardData | null;
+}
+
+const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) => {
+  const [data, setData] = useState<DashboardData | null>(initialData || null);
+  const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>('Q1');
+  const [selectedYear, setSelectedYear] = useState(2025);
+  const [compareEnabled, setCompareEnabled] = useState(false);
+  const [compareType, setCompareType] = useState<'prev_quarter' | 'prev_year' | 'custom'>('prev_quarter');
+  const [chartView, setChartView] = useState<ChartView>('quarterly');
+  const [quarterlyChartView, setQuarterlyChartView] = useState<ChartView>('all');
+  const [yoyChartView, setYoyChartView] = useState<ChartView>('quarterly');
+  const [isLoading, setIsLoading] = useState(!initialData);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'error'>('disconnected');
+
+  // Connect to real-time data updates
+  useEffect(() => {
+    if (!initialData) {
+      loadInitialData();
+    }
+
+    // Connect to WebSocket for real-time updates
+    dataService.connect(
+      (newData) => {
+        setData(newData);
+        setLastUpdate(new Date());
+      },
+      (status) => {
+        if (status === 'connected') setConnectionStatus('connected');
+        else if (status === 'error' || status === 'disconnected') setConnectionStatus('disconnected');
+        else if (status === 'file-deleted') setError('Data file deleted');
+      }
+    );
+
+    return () => {
+      dataService.disconnect();
+    };
+  }, [initialData]);
+
+  const loadInitialData = async () => {
+    try {
+      setIsLoading(true);
+      const fetchedData = await dataService.fetchData();
+      if (fetchedData) {
+        setData(fetchedData);
+        setError(null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Helper functions
+  const formatNumber = (num: number): string => {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toLocaleString();
+  };
+
+  const calculateTrend = (current: number, previous: number) => {
+    const change = ((current - previous) / previous) * 100;
+    return {
+      value: Math.abs(change),
+      direction: change >= 0 ? 'up' : 'down'
+    };
+  };
+
+  // Calculate KPIs based on selected period
+  const kpis = useMemo(() => {
+    if (!data) return null;
+
+    const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
+    const currentData = data.websiteData.filter(d => 
+      d.year === selectedYear && 
+      (currentQuarter ? d.quarter === currentQuarter : true)
+    );
+
+    const previousQuarter = currentQuarter === 'Q1' ? 'Q4' : 
+                           currentQuarter === 'Q2' ? 'Q1' :
+                           currentQuarter === 'Q3' ? 'Q2' : 'Q3';
+    const previousYear = currentQuarter === 'Q1' ? selectedYear - 1 : selectedYear;
+    
+    const previousData = data.websiteData.filter(d => 
+      d.year === previousYear && d.quarter === previousQuarter
+    );
+
+    const currentSocial = data.socialData.filter(d => 
+      d.year === selectedYear && 
+      (currentQuarter ? d.quarter === currentQuarter : true)
+    );
+
+    const currentEmail = data.emailData.filter(d => 
+      d.year === selectedYear && 
+      (currentQuarter ? d.quarter === currentQuarter : true)
+    );
+
+    const currentLeads = data.leadsData.filter(d => 
+      d.year === selectedYear && 
+      (currentQuarter ? d.quarter === currentQuarter : true)
+    );
+
+    // Calculate aggregated metrics
+    const totalSessions = currentData.reduce((sum, d) => sum + (d.sessions || 0), 0);
+    const totalVisitors = currentData.reduce((sum, d) => sum + (d.uniqueVisitors || 0), 0);
+    
+    const totalImpressions = currentSocial.reduce((sum, d) => sum + (d.impressions || 0), 0);
+    const totalEngagements = currentSocial.reduce((sum, d) => 
+      sum + (d.reactions || 0) + (d.comments || 0) + (d.shares || 0), 0);
+    const socialEngagementRate = totalImpressions > 0 ? (totalEngagements / totalImpressions) * 100 : 0;
+
+    const totalEmailsSent = currentEmail.reduce((sum, d) => sum + (d.emailsSent || 0), 0);
+    const totalUniqueOpens = currentEmail.reduce((sum, d) => sum + (d.uniqueOpens || 0), 0);
+    const emailOpenRate = totalEmailsSent > 0 ? (totalUniqueOpens / totalEmailsSent) * 100 : 0;
+
+    const totalNewLeads = currentLeads.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0);
+
+    // Previous period metrics for comparison
+    const prevSessions = previousData.reduce((sum, d) => sum + (d.sessions || 0), 0);
+    const prevVisitors = previousData.reduce((sum, d) => sum + (d.uniqueVisitors || 0), 0);
+
+    const digitalReach = totalVisitors + totalImpressions;
+    const prevReach = prevVisitors + 45000; // Placeholder for previous social impressions
+
+    return {
+      digitalReach: {
+        value: digitalReach,
+        formatted: formatNumber(digitalReach),
+        trend: calculateTrend(digitalReach, prevReach),
+        previousValue: prevReach
+      },
+      sessions: {
+        value: totalSessions,
+        formatted: formatNumber(totalSessions),
+        trend: calculateTrend(totalSessions, prevSessions),
+        previousValue: prevSessions
+      },
+      socialEngagement: {
+        value: socialEngagementRate,
+        formatted: `${socialEngagementRate.toFixed(2)}%`,
+        trend: calculateTrend(socialEngagementRate, 4.6),
+        previousValue: 4.6
+      },
+      emailOpenRate: {
+        value: emailOpenRate,
+        formatted: `${emailOpenRate.toFixed(1)}%`,
+        trend: calculateTrend(emailOpenRate, 62.1),
+        previousValue: 62.1
+      },
+      newLeads: {
+        value: totalNewLeads,
+        formatted: formatNumber(totalNewLeads),
+        trend: calculateTrend(totalNewLeads, 89),
+        previousValue: 89
+      },
+      marketingROI: {
+        value: 3.2,
+        formatted: '3.2x',
+        trend: { value: 14.3, direction: 'up' },
+        previousValue: 2.8
+      }
+    };
+  }, [data, selectedPeriod, selectedYear]);
+
+  const getDateRange = () => {
+    const quarterRanges = {
+      Q1: 'January - March',
+      Q2: 'April - June',
+      Q3: 'July - September',
+      Q4: 'October - December',
+      Year: 'January - December'
+    };
+    
+    const endDates = {
+      Q1: 'March 31',
+      Q2: 'June 30',
+      Q3: 'September 30',
+      Q4: 'December 31',
+      Year: 'December 31'
+    };
+
+    return `${selectedPeriod} ${selectedYear} (${quarterRanges[selectedPeriod]}) | Data as of ${endDates[selectedPeriod]}, ${selectedYear}`;
+  };
+
+  // Chart data preparation
+  const getQuarterlyChartData = () => {
+    if (!data) return [];
+    
+    const quarters = ['Q1 2024', 'Q2 2024', 'Q3 2024', 'Q4 2024', 'Q1 2025'];
+    
+    return quarters.map(q => {
+      const [quarter, year] = q.split(' ');
+      const yearNum = parseInt(year);
+      
+      const websiteData = data.websiteData.filter(d => 
+        d.year === yearNum && d.quarter === quarter
+      );
+      
+      const socialData = data.socialData.filter(d => 
+        d.year === yearNum && d.quarter === quarter
+      );
+      
+      const emailData = data.emailData.filter(d => 
+        d.year === yearNum && d.quarter === quarter
+      );
+      
+      const leadsData = data.leadsData.filter(d => 
+        d.year === yearNum && d.quarter === quarter
+      );
+
+      return {
+        period: q,
+        sessions: websiteData.reduce((sum, d) => sum + (d.sessions || 0), 0),
+        socialImpressions: socialData.reduce((sum, d) => sum + (d.impressions || 0), 0),
+        emailsSent: emailData.reduce((sum, d) => sum + (d.emailsSent || 0), 0),
+        leads: leadsData.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0),
+        conversionRate: websiteData.length > 0 ? 
+          (leadsData.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0) / 
+           websiteData.reduce((sum, d) => sum + (d.sessions || 0), 0)) * 100 : 0
+      };
+    });
+  };
+
+  const getTimelineData = () => {
+    return [
+      { period: 'Q1 2024', value: 72000, label: '72K', change: null },
+      { period: 'Q2 2024', value: 68000, label: '68K', change: -5.6 },
+      { period: 'Q3 2024', value: 75000, label: '75K', change: 10.3 },
+      { period: 'Q4 2024', value: 71000, label: '71K', change: -5.3 },
+      { period: 'Q1 2025', value: 87000, label: '87K', change: 20.8 }
+    ];
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center max-w-md">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to Load Dashboard</h3>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={loadInitialData}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-5">
+      <div className="max-w-[1400px] mx-auto bg-white rounded-[20px] shadow-[0_20px_60px_rgba(0,0,0,0.1)] overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-[#005C84] to-[#55A51C] p-8 text-white">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h1 className="text-3xl font-semibold mb-2">Digital Analytics Executive Dashboard</h1>
+              <p className="text-base opacity-90">Comprehensive Performance Overview - CAAT Pension Plan</p>
+              <p className="text-sm opacity-80 mt-2">{getDateRange()}</p>
+            </div>
+            
+            {/* Period Selector */}
+            <div className="flex gap-2 bg-white/20 p-1 rounded-lg backdrop-blur-sm">
+              {(['Q1', 'Q2', 'Q3', 'Q4', 'Year'] as PeriodType[]).map(period => (
+                <button
+                  key={period}
+                  onClick={() => setSelectedPeriod(period)}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    selectedPeriod === period
+                      ? 'bg-white text-[#005C84]'
+                      : 'text-white hover:bg-white/20'
+                  }`}
+                >
+                  {period} {period !== 'Year' ? selectedYear : `${selectedYear} Full Year`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Comparison Controls */}
+          <div className="flex items-center gap-6 bg-white/10 rounded-lg px-4 py-3 backdrop-blur-sm">
+            <div className="flex items-center gap-3">
+              <label className="text-sm opacity-90">Compare Periods</label>
+              <button
+                onClick={() => {
+                  setCompareEnabled(!compareEnabled);
+                  if (!compareEnabled && kpis) {
+                    // Show comparison values in KPI cards
+                  }
+                }}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  compareEnabled ? 'bg-[#55A51C]' : 'bg-white/30'
+                }`}
+              >
+                <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                  compareEnabled ? 'translate-x-6' : ''
+                }`} />
+              </button>
+            </div>
+
+            {compareEnabled && (
+              <select
+                value={compareType}
+                onChange={(e) => setCompareType(e.target.value as any)}
+                className="px-3 py-1.5 rounded-md bg-white text-[#005C84] text-sm"
+              >
+                <option value="prev_quarter">Previous Quarter</option>
+                <option value="prev_year">Previous Year Same Quarter</option>
+                <option value="custom">Custom Period</option>
+              </select>
+            )}
+
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="px-3 py-1.5 rounded-md bg-white text-[#005C84] text-sm ml-auto"
+            >
+              <option value={2025}>2025</option>
+              <option value={2024}>2024</option>
+              <option value={2023}>2023</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Navigation Tabs */}
+        <div className="bg-gray-50 px-10 flex gap-1 border-b-2 border-gray-200 overflow-x-auto">
+          {[
+            { id: 'overview', label: 'Executive Summary' },
+            { id: 'website', label: 'Website Analytics' },
+            { id: 'social', label: 'Social Media' },
+            { id: 'email', label: 'Email Marketing' },
+            { id: 'leads', label: 'Leads & Pipeline' },
+            { id: 'trends', label: 'Trends & Insights' },
+            { id: 'quarterly', label: 'Quarterly Analysis' },
+            { id: 'yoy', label: 'Year-over-Year' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as TabType)}
+              className={`px-6 py-4 text-sm font-medium whitespace-nowrap transition-all relative ${
+                activeTab === tab.id
+                  ? 'text-[#005C84] bg-white rounded-t-lg'
+                  : 'text-gray-600 hover:text-[#005C84] hover:bg-white/50'
+              }`}
+            >
+              {tab.label}
+              {activeTab === tab.id && (
+                <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#005C84]" />
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Content Area */}
+        <div className="p-10">
+          {/* Executive Summary Tab */}
+          {activeTab === 'overview' && kpis && (
+            <div className="space-y-8 animate-fadeIn">
+              {/* KPI Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all hover:-translate-y-1 relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#005C84] to-[#55A51C]" />
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Total Digital Reach</div>
+                  <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.digitalReach.formatted}+</div>
+                  <div className={`flex items-center gap-1 text-sm ${kpis.digitalReach.trend.direction === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+                    {kpis.digitalReach.trend.direction === 'up' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                    {kpis.digitalReach.trend.value.toFixed(1)}% vs Q4 2024
+                  </div>
+                  {compareEnabled && (
+                    <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
+                      Q4 2024: {formatNumber(kpis.digitalReach.previousValue)}
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all hover:-translate-y-1 relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#005C84] to-[#55A51C]" />
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Website Sessions</div>
+                  <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.sessions.formatted}</div>
+                  <div className={`flex items-center gap-1 text-sm ${kpis.sessions.trend.direction === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+                    {kpis.sessions.trend.direction === 'up' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                    {kpis.sessions.trend.value.toFixed(1)}% vs Q4 2024
+                  </div>
+                  {compareEnabled && (
+                    <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
+                      Q4 2024: {formatNumber(kpis.sessions.previousValue)}
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all hover:-translate-y-1 relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#005C84] to-[#55A51C]" />
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Social Engagement Rate</div>
+                  <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.socialEngagement.formatted}</div>
+                  <div className={`flex items-center gap-1 text-sm ${kpis.socialEngagement.trend.direction === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+                    {kpis.socialEngagement.trend.direction === 'up' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                    {kpis.socialEngagement.trend.value.toFixed(2)}pp vs Q4 2024
+                  </div>
+                  {compareEnabled && (
+                    <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
+                      Q4 2024: {kpis.socialEngagement.previousValue}%
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all hover:-translate-y-1 relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#005C84] to-[#55A51C]" />
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Email Open Rate</div>
+                  <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.emailOpenRate.formatted}</div>
+                  <div className={`flex items-center gap-1 text-sm ${kpis.emailOpenRate.trend.direction === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+                    {kpis.emailOpenRate.trend.direction === 'up' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                    {kpis.emailOpenRate.trend.value.toFixed(1)}pp vs Q4 2024
+                  </div>
+                  {compareEnabled && (
+                    <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
+                      Q4 2024: {kpis.emailOpenRate.previousValue}%
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all hover:-translate-y-1 relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#005C84] to-[#55A51C]" />
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">New Leads Generated</div>
+                  <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.newLeads.formatted}</div>
+                  <div className={`flex items-center gap-1 text-sm ${kpis.newLeads.trend.direction === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+                    {kpis.newLeads.trend.direction === 'up' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                    {kpis.newLeads.trend.value.toFixed(0)}% vs Q4 2024
+                  </div>
+                  {compareEnabled && (
+                    <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
+                      Q4 2024: {kpis.newLeads.previousValue}
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all hover:-translate-y-1 relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#005C84] to-[#55A51C]" />
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Marketing ROI</div>
+                  <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.marketingROI.formatted}</div>
+                  <div className="flex items-center gap-1 text-sm text-green-600">
+                    <TrendingUp className="h-4 w-4" />
+                    Target: 2.5x
+                  </div>
+                  {compareEnabled && (
+                    <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
+                      Q4 2024: {kpis.marketingROI.previousValue}x
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Performance Overview Chart */}
+              <div className="bg-white p-6 rounded-xl border border-gray-200">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">Performance Overview - Quarterly Trend</h3>
+                  <div className="flex gap-2">
+                    {(['quarterly', 'monthly', 'yoy'] as ChartView[]).map(view => (
+                      <button
+                        key={view}
+                        onClick={() => setChartView(view)}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                          chartView === view
+                            ? 'bg-[#005C84] text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {view === 'yoy' ? 'Year-over-Year' : view.charAt(0).toUpperCase() + view.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                <ResponsiveContainer width="100%" height={300}>
+                  <ComposedChart data={getQuarterlyChartData()}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="period" tick={{ fontSize: 12 }} />
+                    <YAxis yAxisId="left" tick={{ fontSize: 12 }} />
+                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} />
+                    <Tooltip />
+                    <Legend />
+                    <Bar yAxisId="left" dataKey="sessions" fill="#005C84" name="Website Sessions" />
+                    <Bar yAxisId="left" dataKey="socialImpressions" fill="#55A51C" name="Social Impressions" />
+                    <Line yAxisId="right" type="monotone" dataKey="conversionRate" stroke="#ff7300" name="Conversion Rate (%)" strokeWidth={2} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Historical Performance Timeline */}
+              <div className="bg-white p-6 rounded-xl border border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">Historical Performance Timeline</h3>
+                <div className="flex gap-5 overflow-x-auto pb-2">
+                  {getTimelineData().map((period, index) => (
+                    <div
+                      key={period.period}
+                      className={`min-w-[200px] p-5 rounded-lg border-2 cursor-pointer transition-all ${
+                        index === getTimelineData().length - 1
+                          ? 'bg-gradient-to-br from-blue-50 to-green-50 border-[#005C84]'
+                          : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="text-sm font-semibold text-gray-600 mb-2">{period.period}</div>
+                      <div className="text-2xl font-bold text-[#005C84] mb-1">{period.label}</div>
+                      {period.change !== null && (
+                        <div className={`text-sm ${period.change > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {period.change > 0 ? '↑' : '↓'} {Math.abs(period.change).toFixed(1)}% 
+                          {index === getTimelineData().length - 1 ? ' YoY' : ' QoQ'}
+                        </div>
+                      )}
+                      <div className="text-xs text-gray-500 mt-1">Reach</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Executive Insights & Recommendations */}
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-xl">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-yellow-100 rounded-lg">
+                    <Info className="h-5 w-5 text-yellow-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Executive Insights & Recommendations</h3>
+                </div>
+                <ul className="space-y-3">
+                  {[
+                    { title: 'Digital Growth Momentum', desc: 'Q1 2025 shows 20.8% YoY growth in digital reach, outpacing 2024\'s quarterly average of 71.5K by 22%.' },
+                    { title: 'Quarterly Progression', desc: 'Consistent quarter-over-quarter improvement since Q2 2024, with Q1 2025 marking the strongest performance.' },
+                    { title: 'Channel Evolution', desc: 'Social media engagement improved from 4.2% (Q1 2024) to 5.38% (Q1 2025), a 28% YoY increase.' },
+                    { title: 'Email Excellence Sustained', desc: 'Open rates improved from 58% (Q1 2024) to 68.4% (Q1 2025), maintaining leadership position.' },
+                    { title: 'Lead Generation Breakthrough', desc: '146 leads in Q1 2025 vs 92 in Q1 2024 represents 59% YoY growth.' },
+                    { title: 'Investment Returns', desc: 'Marketing ROI increased from 2.4x (Q1 2024) to 3.2x (Q1 2025), exceeding targets by 28%.' }
+                  ].map((insight, index) => (
+                    <li key={index} className="flex gap-3">
+                      <ChevronRight className="h-5 w-5 text-[#55A51C] flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-semibold text-gray-900">{insight.title}:</span>{' '}
+                        <span className="text-gray-600">{insight.desc}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Website Analytics Tab */}
+          {activeTab === 'website' && data && (
+            <div className="space-y-8 animate-fadeIn">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                {(() => {
+                  // Get data for selected period
+                  const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
+                  const currentData = data.websiteData.filter(d => 
+                    d.year === selectedYear && 
+                    (currentQuarter ? d.quarter === currentQuarter : true)
+                  );
+                  
+                  const totalSessions = currentData.reduce((sum, d) => sum + (d.sessions || 0), 0);
+                  const totalPageviews = currentData.reduce((sum, d) => sum + (d.pageviews || 0), 0);
+                  const totalVisitors = currentData.reduce((sum, d) => sum + (d.uniqueVisitors || 0), 0);
+                  const avgBounceRate = currentData.length > 0 ? 
+                    currentData.reduce((sum, d) => sum + (d.bounceRate || 0), 0) / currentData.length : 0;
+                  const pagesPerSession = totalSessions > 0 ? (totalPageviews / totalSessions).toFixed(2) : '0';
+                  const newVisitorRate = totalVisitors > 0 ? 
+                    ((currentData.reduce((sum, d) => sum + (d.uniqueVisitors || 0) - (d.returningVisitors || 0), 0) / totalVisitors) * 100).toFixed(1) : '0';
+                  
+                  return [
+                    { label: 'Total Sessions', value: formatNumber(totalSessions), subtext: `${selectedPeriod} ${selectedYear}`, icon: Globe },
+                    { label: 'Pageviews', value: formatNumber(totalPageviews), subtext: `${pagesPerSession} pages/session`, icon: Eye },
+                    { label: 'Unique Visitors', value: formatNumber(totalVisitors), subtext: `${newVisitorRate}% new visitors`, icon: Users },
+                    { label: 'Bounce Rate', value: `${avgBounceRate.toFixed(1)}%`, subtext: avgBounceRate > 65 ? '↓ Needs improvement' : 'Good', icon: Activity, negative: avgBounceRate > 65 }
+                  ].map((metric, index) => (
+                  <div key={index} className="bg-white p-6 rounded-xl border border-gray-200">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="p-2 bg-blue-50 rounded-lg">
+                        <metric.icon className="h-5 w-5 text-blue-600" />
+                      </div>
+                      {metric.negative && <AlertCircle className="h-4 w-4 text-orange-500" />}
+                    </div>
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{metric.label}</div>
+                    <div className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</div>
+                    <div className={`text-sm ${metric.negative ? 'text-orange-600' : 'text-gray-500'}`}>{metric.subtext}</div>
+                  </div>
+                ))
+                })()}
+              </div>
+
+              {/* Traffic Sources Table */}
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900">Traffic Sources Breakdown</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Source</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Sessions</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">% of Total</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Trend</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {[
+                        { source: 'Direct Traffic', sessions: 7123, percent: 45.2, trend: 12.3, status: 'GROWING' },
+                        { source: 'Search Engines', sessions: 4892, percent: 31.1, trend: 8.7, status: 'STABLE' },
+                        { source: 'Social Media', sessions: 2156, percent: 13.7, trend: 24.5, status: 'EXCELLENT' },
+                        { source: 'External Referrers', sessions: 1089, percent: 6.9, trend: -3.2, status: 'WARNING' },
+                        { source: 'Internal Referrers', sessions: 479, percent: 3.0, trend: 5.1, status: 'GOOD' }
+                      ].map((row, index) => (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 text-sm font-medium text-gray-900">{row.source}</td>
+                          <td className="px-6 py-4 text-sm text-gray-600">{row.sessions.toLocaleString()}</td>
+                          <td className="px-6 py-4 text-sm text-gray-600">{row.percent}%</td>
+                          <td className="px-6 py-4 text-sm">
+                            <span className={`flex items-center gap-1 ${row.trend > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {row.trend > 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                              {Math.abs(row.trend)}%
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-md ${
+                              row.status === 'EXCELLENT' ? 'bg-green-100 text-green-800' :
+                              row.status === 'GROWING' ? 'bg-blue-100 text-blue-800' :
+                              row.status === 'GOOD' ? 'bg-cyan-100 text-cyan-800' :
+                              row.status === 'STABLE' ? 'bg-gray-100 text-gray-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {row.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Social Media Tab */}
+          {activeTab === 'social' && data && (
+            <div className="space-y-8 animate-fadeIn">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                {(() => {
+                  const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
+                  const currentSocial = data.socialData.filter(d => 
+                    d.year === selectedYear && 
+                    (currentQuarter ? d.quarter === currentQuarter : true)
+                  );
+                  
+                  // Previous period for comparison
+                  const previousQuarter = currentQuarter === 'Q1' ? 'Q4' : 
+                                         currentQuarter === 'Q2' ? 'Q1' :
+                                         currentQuarter === 'Q3' ? 'Q2' : 'Q3';
+                  const previousYear = currentQuarter === 'Q1' ? selectedYear - 1 : selectedYear;
+                  const previousSocial = data.socialData.filter(d => 
+                    d.year === previousYear && d.quarter === previousQuarter
+                  );
+                  
+                  const totalImpressions = currentSocial.reduce((sum, d) => sum + (d.impressions || 0), 0);
+                  const totalReactions = currentSocial.reduce((sum, d) => sum + (d.reactions || 0), 0);
+                  const totalEngagements = currentSocial.reduce((sum, d) => 
+                    sum + (d.reactions || 0) + (d.comments || 0) + (d.shares || 0), 0);
+                  const totalClicks = currentSocial.reduce((sum, d) => sum + (d.clicks || 0), 0);
+                  
+                  const engagementRate = totalImpressions > 0 ? (totalEngagements / totalImpressions) * 100 : 0;
+                  const ctr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
+                  
+                  // Previous period metrics
+                  const prevImpressions = previousSocial.reduce((sum, d) => sum + (d.impressions || 0), 0);
+                  const prevEngagements = previousSocial.reduce((sum, d) => 
+                    sum + (d.reactions || 0) + (d.comments || 0) + (d.shares || 0), 0);
+                  const prevEngRate = prevImpressions > 0 ? (prevEngagements / prevImpressions) * 100 : 0;
+                  
+                  return [
+                    { 
+                      label: 'Total Impressions', 
+                      value: formatNumber(totalImpressions), 
+                      trend: prevImpressions > 0 ? ((totalImpressions - prevImpressions) / prevImpressions * 100).toFixed(1) : 0, 
+                      icon: Eye 
+                    },
+                    { 
+                      label: 'Engagement Rate', 
+                      value: `${engagementRate.toFixed(2)}%`, 
+                      trend: (engagementRate - prevEngRate).toFixed(2), 
+                      icon: Activity 
+                    },
+                    { 
+                      label: 'Total Reactions', 
+                      value: formatNumber(totalReactions), 
+                      trend: 0, 
+                      icon: Share2 
+                    },
+                    { 
+                      label: 'Click-Through Rate', 
+                      value: `${ctr.toFixed(2)}%`, 
+                      trend: 0, 
+                      icon: MousePointer 
+                    }
+                  ].map((metric, index) => (
+                  <div key={index} className="bg-white p-6 rounded-xl border border-gray-200">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="p-2 bg-green-50 rounded-lg">
+                        <metric.icon className="h-5 w-5 text-green-600" />
+                      </div>
+                    </div>
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{metric.label}</div>
+                    <div className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</div>
+                    <div className="flex items-center gap-1 text-sm text-green-600">
+                      <TrendingUp className="h-4 w-4" />
+                      +{metric.trend}{typeof metric.trend === 'number' && metric.trend < 10 ? 'pp' : '%'} vs Previous
+                    </div>
+                  </div>
+                ))
+                })()}
+              </div>
+
+              {/* Platform Performance Table */}
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900">Platform Performance</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Platform</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Impressions</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Engagements</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Eng. Rate</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">CTR</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Performance</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {[
+                        { platform: 'LinkedIn', impressions: 18456, engagements: 1243, engRate: 6.73, ctr: 3.21, status: 'EXCELLENT' },
+                        { platform: 'Twitter/X', impressions: 9234, engagements: 412, engRate: 4.46, ctr: 2.18, status: 'GOOD' },
+                        { platform: 'Facebook', impressions: 5892, engagements: 198, engRate: 3.36, ctr: 1.92, status: 'STABLE' },
+                        { platform: 'Instagram', impressions: 2725, engagements: 100, engRate: 3.67, ctr: 2.75, status: 'GROWING' }
+                      ].map((row, index) => (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 text-sm font-medium text-gray-900">{row.platform}</td>
+                          <td className="px-6 py-4 text-sm text-gray-600">{row.impressions.toLocaleString()}</td>
+                          <td className="px-6 py-4 text-sm text-gray-600">{row.engagements.toLocaleString()}</td>
+                          <td className="px-6 py-4 text-sm text-gray-600">{row.engRate}%</td>
+                          <td className="px-6 py-4 text-sm text-gray-600">{row.ctr}%</td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-md ${
+                              row.status === 'EXCELLENT' ? 'bg-green-100 text-green-800' :
+                              row.status === 'GROWING' ? 'bg-blue-100 text-blue-800' :
+                              row.status === 'GOOD' ? 'bg-cyan-100 text-cyan-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {row.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Email Marketing Tab */}
+          {activeTab === 'email' && data && (
+            <div className="space-y-8 animate-fadeIn">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                {(() => {
+                  const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
+                  const currentEmail = data.emailData.filter(d => 
+                    d.year === selectedYear && 
+                    (currentQuarter ? d.quarter === currentQuarter : true)
+                  );
+                  
+                  const totalEmailsSent = currentEmail.reduce((sum, d) => sum + (d.emailsSent || 0), 0);
+                  const totalUniqueOpens = currentEmail.reduce((sum, d) => sum + (d.uniqueOpens || 0), 0);
+                  const totalUniqueClicks = currentEmail.reduce((sum, d) => sum + (d.uniqueClicks || 0), 0);
+                  
+                  const openRate = totalEmailsSent > 0 ? (totalUniqueOpens / totalEmailsSent) * 100 : 0;
+                  const clickRate = totalEmailsSent > 0 ? (totalUniqueClicks / totalEmailsSent) * 100 : 0;
+                  const conversionRate = totalUniqueClicks > 0 ? (totalUniqueClicks * 0.25) / totalEmailsSent * 100 : 0; // Estimate
+                  
+                  return [
+                    { label: 'Emails Sent', value: formatNumber(totalEmailsSent), trend: 0, icon: Mail },
+                    { label: 'Open Rate', value: `${openRate.toFixed(1)}%`, trend: 0, icon: Eye },
+                    { label: 'Click Rate', value: `${clickRate.toFixed(1)}%`, trend: 0, icon: MousePointer },
+                    { label: 'Conversion Rate', value: `${conversionRate.toFixed(1)}%`, trend: 0, icon: Target }
+                  ].map((metric, index) => (
+                  <div key={index} className="bg-white p-6 rounded-xl border border-gray-200">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="p-2 bg-purple-50 rounded-lg">
+                        <metric.icon className="h-5 w-5 text-purple-600" />
+                      </div>
+                    </div>
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{metric.label}</div>
+                    <div className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</div>
+                    <div className="flex items-center gap-1 text-sm text-green-600">
+                      <TrendingUp className="h-4 w-4" />
+                      +{metric.trend}{metric.trend < 10 ? 'pp' : '%'} vs Previous
+                    </div>
+                  </div>
+                ))
+                })()}
+              </div>
+
+              {/* Email Campaign Performance */}
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">Campaign Performance Trends</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={[
+                    { month: 'Jan', openRate: 65.2, clickRate: 16.8, convRate: 4.2 },
+                    { month: 'Feb', openRate: 68.9, clickRate: 18.3, convRate: 4.9 },
+                    { month: 'Mar', openRate: 71.1, clickRate: 19.5, convRate: 5.3 }
+                  ]}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Area type="monotone" dataKey="openRate" stackId="1" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.6} name="Open Rate %" />
+                    <Area type="monotone" dataKey="clickRate" stackId="2" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.6} name="Click Rate %" />
+                    <Area type="monotone" dataKey="convRate" stackId="3" stroke="#10b981" fill="#10b981" fillOpacity={0.6} name="Conv Rate %" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
+          {/* Leads & Pipeline Tab */}
+          {activeTab === 'leads' && data && (
+            <div className="space-y-8 animate-fadeIn">
+              {/* Lead Funnel */}
+              <div className="bg-white rounded-xl border border-gray-200 p-8">
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">Lead Generation Funnel - {selectedPeriod} {selectedYear}</h3>
+                <div className="space-y-3">
+                  {(() => {
+                    // Get actual data based on selected period
+                    const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
+                    const currentLeads = data.leadsData.filter(d => 
+                      d.year === selectedYear && 
+                      (currentQuarter ? d.quarter === currentQuarter : true)
+                    );
+                    
+                    // Aggregate the data
+                    const newProspects = currentLeads.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0);
+                    const marketingQualified = currentLeads.reduce((sum, d) => sum + (d.marketingQualified || 0), 0);
+                    const salesAccepted = currentLeads.reduce((sum, d) => sum + (d.salesAccepted || 0), 0);
+                    const opportunities = currentLeads.reduce((sum, d) => sum + (d.opportunities || 0), 0);
+                    
+                    // Build funnel stages with actual data
+                    const stages = [
+                      { stage: 'New Prospects', value: newProspects, color: 'from-blue-500 to-blue-600', width: '100%' },
+                      { stage: 'Marketing Qualified', value: marketingQualified, color: 'from-indigo-500 to-indigo-600', width: marketingQualified > 0 ? `${(marketingQualified / newProspects * 100)}%` : '0%' },
+                      { stage: 'Sales Accepted', value: salesAccepted, color: 'from-purple-500 to-purple-600', width: salesAccepted > 0 ? `${(salesAccepted / newProspects * 100)}%` : '0%' },
+                      { stage: 'Opportunities', value: opportunities, color: 'from-pink-500 to-pink-600', width: opportunities > 0 ? `${(opportunities / newProspects * 100)}%` : '0%' }
+                    ];
+                    
+                    return stages.map((stage, index) => (
+                    <div key={index} className="relative">
+                      <div 
+                        className={`relative bg-gradient-to-r ${stage.color} text-white rounded-lg p-4 transition-all hover:scale-[1.02] hover:shadow-lg`}
+                        style={{ width: stage.width }}
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="font-semibold">{stage.stage}</span>
+                          <span className="text-2xl font-bold">{stage.value}</span>
+                        </div>
+                      </div>
+                      {index < 4 && (
+                        <ChevronDown className="h-5 w-5 text-gray-400 mx-auto mt-2" />
+                      )}
+                    </div>
+                  ));
+                  })()}
+                </div>
+              </div>
+
+              {/* Pipeline Metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  <h4 className="text-base font-semibold text-gray-900 mb-4">Conversion Rates - {selectedPeriod} {selectedYear}</h4>
+                  <div className="space-y-3">
+                    {(() => {
+                      // Calculate conversion rates from actual data
+                      const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
+                      const currentLeads = data.leadsData.filter(d => 
+                        d.year === selectedYear && 
+                        (currentQuarter ? d.quarter === currentQuarter : true)
+                      );
+                      
+                      const newProspects = currentLeads.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0);
+                      const mql = currentLeads.reduce((sum, d) => sum + (d.marketingQualified || 0), 0);
+                      const sal = currentLeads.reduce((sum, d) => sum + (d.salesAccepted || 0), 0);
+                      const opps = currentLeads.reduce((sum, d) => sum + (d.opportunities || 0), 0);
+                      
+                      const metrics = [
+                        { 
+                          label: 'Prospect → MQL', 
+                          value: newProspects > 0 ? Math.round((mql / newProspects) * 100) : 0, 
+                          target: 50 
+                        },
+                        { 
+                          label: 'MQL → SAL', 
+                          value: mql > 0 ? Math.round((sal / mql) * 100) : 0, 
+                          target: 60 
+                        },
+                        { 
+                          label: 'SAL → Opportunity', 
+                          value: sal > 0 ? Math.round((opps / sal) * 100) : 0, 
+                          target: 50 
+                        }
+                      ];
+                      
+                      return metrics.map((metric, index) => (
+                      <div key={index}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-gray-600">{metric.label}</span>
+                          <span className="font-semibold text-gray-900">{metric.value}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className={`h-2 rounded-full ${
+                              metric.value >= metric.target ? 'bg-green-500' : 'bg-yellow-500'
+                            }`}
+                            style={{ width: `${metric.value}%` }}
+                          />
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">Target: {metric.target}%</div>
+                      </div>
+                    ));
+                    })()}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  <h4 className="text-base font-semibold text-gray-900 mb-4">Pipeline Summary - {selectedPeriod} {selectedYear}</h4>
+                  <div className="space-y-4">
+                    {(() => {
+                      const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
+                      const currentLeads = data.leadsData.filter(d => 
+                        d.year === selectedYear && 
+                        (currentQuarter ? d.quarter === currentQuarter : true)
+                      );
+                      
+                      const totalPipeline = currentLeads.reduce((sum, d) => sum + (d.pipelineValue || 0), 0);
+                      const totalOpps = currentLeads.reduce((sum, d) => sum + (d.opportunities || 0), 0);
+                      const avgDealSize = totalOpps > 0 ? totalPipeline / totalOpps : 0;
+                      
+                      return (
+                        <>
+                          <div className="text-center py-4">
+                            <div className="text-3xl font-bold text-[#005C84]">
+                              ${totalPipeline > 0 ? formatNumber(totalPipeline) : '0'}
+                            </div>
+                            <div className="text-sm text-gray-500 mt-1">Total Pipeline Value</div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="text-center p-3 bg-gray-50 rounded-lg">
+                              <div className="text-xl font-semibold text-gray-900">
+                                ${avgDealSize > 0 ? formatNumber(avgDealSize) : '0'}
+                              </div>
+                              <div className="text-xs text-gray-500">Avg Deal Size</div>
+                            </div>
+                            <div className="text-center p-3 bg-gray-50 rounded-lg">
+                              <div className="text-xl font-semibold text-gray-900">{totalOpps}</div>
+                              <div className="text-xs text-gray-500">Active Opportunities</div>
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Trends & Insights Tab */}
+          {activeTab === 'trends' && (
+            <div className="space-y-8 animate-fadeIn">
+              {/* Cross-Channel Performance Radar Chart */}
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">Cross-Channel Performance Index</h3>
+                <ResponsiveContainer width="100%" height={400}>
+                  <RadarChart data={[
+                    { metric: 'Website Traffic', value: 85, fullMark: 100 },
+                    { metric: 'Social Engagement', value: 92, fullMark: 100 },
+                    { metric: 'Email Performance', value: 88, fullMark: 100 },
+                    { metric: 'Lead Generation', value: 78, fullMark: 100 },
+                    { metric: 'Content Performance', value: 82, fullMark: 100 },
+                    { metric: 'SEO Visibility', value: 75, fullMark: 100 }
+                  ]}>
+                    <PolarGrid stroke="#e5e7eb" />
+                    <PolarAngleAxis dataKey="metric" tick={{ fontSize: 12 }} />
+                    <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 10 }} />
+                    <Radar name="Q1 2025" dataKey="value" stroke="#005C84" fill="#005C84" fillOpacity={0.6} />
+                    <Tooltip />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Key Trends & Insights */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-gradient-to-br from-blue-50 to-green-50 p-6 rounded-xl">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-white rounded-lg">
+                      <TrendingUp className="h-5 w-5 text-green-600" />
+                    </div>
+                    <h4 className="text-base font-semibold text-gray-900">Positive Trends</h4>
+                  </div>
+                  <ul className="space-y-2">
+                    {[
+                      'Email engagement at all-time high (68.4% open rate)',
+                      'Social media reach growing 27.6% YoY',
+                      'Lead quality improving with 61% MQL conversion',
+                      'Mobile traffic up 34% quarter-over-quarter',
+                      'Video content engagement increased 45%'
+                    ].map((trend, index) => (
+                      <li key={index} className="flex gap-2 text-sm text-gray-700">
+                        <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
+                        <span>{trend}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="bg-gradient-to-br from-orange-50 to-red-50 p-6 rounded-xl">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-white rounded-lg">
+                      <AlertCircle className="h-5 w-5 text-orange-600" />
+                    </div>
+                    <h4 className="text-base font-semibold text-gray-900">Areas for Improvement</h4>
+                  </div>
+                  <ul className="space-y-2">
+                    {[
+                      'Bounce rate remains high at 70.4%',
+                      'Average session duration below 2 minutes',
+                      'External referral traffic declining -3.2%',
+                      'Form completion rate at 12% (target: 20%)',
+                      'Cart abandonment rate needs attention'
+                    ].map((issue, index) => (
+                      <li key={index} className="flex gap-2 text-sm text-gray-700">
+                        <AlertCircle className="h-4 w-4 text-orange-600 flex-shrink-0 mt-0.5" />
+                        <span>{issue}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Recommendations */}
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">Strategic Recommendations</h3>
+                <div className="space-y-4">
+                  {[
+                    {
+                      priority: 'HIGH',
+                      title: 'Optimize Website User Experience',
+                      description: 'Focus on reducing bounce rate through improved page load times, clearer CTAs, and enhanced mobile experience.',
+                      impact: 'Expected 25% improvement in conversion rate'
+                    },
+                    {
+                      priority: 'HIGH',
+                      title: 'Expand LinkedIn Advertising',
+                      description: 'LinkedIn shows strongest engagement (6.73%). Increase budget allocation by 30% for Q2.',
+                      impact: 'Projected 40+ additional MQLs per quarter'
+                    },
+                    {
+                      priority: 'MEDIUM',
+                      title: 'Content Diversification Strategy',
+                      description: 'Develop more video content and interactive tools based on engagement data.',
+                      impact: 'Potential 50% increase in average session duration'
+                    },
+                    {
+                      priority: 'MEDIUM',
+                      title: 'Email Segmentation Enhancement',
+                      description: 'Implement behavioral segmentation to maintain high open rates while improving relevance.',
+                      impact: 'Target 25% improvement in CTOR'
+                    }
+                  ].map((rec, index) => (
+                    <div key={index} className="border-l-4 border-[#005C84] pl-4 py-2">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`text-xs font-semibold px-2 py-1 rounded-md ${
+                              rec.priority === 'HIGH' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {rec.priority}
+                            </span>
+                            <h5 className="font-semibold text-gray-900">{rec.title}</h5>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-1">{rec.description}</p>
+                          <p className="text-xs text-green-600 font-medium">{rec.impact}</p>
+                        </div>
+                        <ArrowRight className="h-5 w-5 text-gray-400" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Quarterly Analysis Tab */}
+          {activeTab === 'quarterly' && data && (
+            <div className="space-y-8 animate-fadeIn">
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">Quarterly Performance Comparison - All Channels</h3>
+                  <div className="flex gap-2">
+                    {(['all', 'traffic', 'engagement', 'conversion'] as ChartView[]).map(view => (
+                      <button
+                        key={view}
+                        onClick={() => setQuarterlyChartView(view)}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                          quarterlyChartView === view
+                            ? 'bg-[#005C84] text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {view === 'all' ? 'All Metrics' : view.charAt(0).toUpperCase() + view.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <ResponsiveContainer width="100%" height={400}>
+                  <BarChart data={getQuarterlyChartData()}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="period" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    {(quarterlyChartView === 'all' || quarterlyChartView === 'traffic') && (
+                      <Bar dataKey="sessions" fill="#005C84" name="Website Sessions" />
+                    )}
+                    {(quarterlyChartView === 'all' || quarterlyChartView === 'engagement') && (
+                      <Bar dataKey="socialImpressions" fill="#55A51C" name="Social Impressions" />
+                    )}
+                    {(quarterlyChartView === 'all' || quarterlyChartView === 'engagement') && (
+                      <Bar dataKey="emailsSent" fill="#8b5cf6" name="Emails Sent" />
+                    )}
+                    {(quarterlyChartView === 'all' || quarterlyChartView === 'conversion') && (
+                      <Bar dataKey="leads" fill="#f59e0b" name="New Leads" />
+                    )}
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Quarterly Comparison Table */}
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Metric</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Q1 2024</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Q2 2024</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Q3 2024</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Q4 2024</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Q1 2025</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">QoQ Change</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">YoY Change</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {[
+                        { metric: 'Website Sessions', q1_24: 13245, q2_24: 12890, q3_24: 14567, q4_24: 14053, q1_25: 15739, qoq: 12.0, yoy: 18.8 },
+                        { metric: 'Social Impressions', q1_24: 28450, q2_24: 26780, q3_24: 31200, q4_24: 29890, q1_25: 36307, qoq: 21.5, yoy: 27.6 },
+                        { metric: 'Emails Sent', q1_24: 1450, q2_24: 1380, q3_24: 1620, q4_24: 1590, q1_25: 1828, qoq: 15.0, yoy: 26.1 },
+                        { metric: 'Leads Generated', q1_24: 92, q2_24: 78, q3_24: 105, q4_24: 89, q1_25: 146, qoq: 64.0, yoy: 58.7 },
+                        { metric: 'Conversion Rate', q1_24: 0.69, q2_24: 0.61, q3_24: 0.72, q4_24: 0.63, q1_25: 0.93, qoq: 47.6, yoy: 34.8 }
+                      ].map((row, index) => (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 text-sm font-medium text-gray-900">{row.metric}</td>
+                          <td className="px-6 py-4 text-sm text-gray-600">
+                            {row.metric === 'Conversion Rate' ? `${row.q1_24}%` : row.q1_24.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-600">
+                            {row.metric === 'Conversion Rate' ? `${row.q2_24}%` : row.q2_24.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-600">
+                            {row.metric === 'Conversion Rate' ? `${row.q3_24}%` : row.q3_24.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-600">
+                            {row.metric === 'Conversion Rate' ? `${row.q4_24}%` : row.q4_24.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                            {row.metric === 'Conversion Rate' ? `${row.q1_25}%` : row.q1_25.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 text-sm">
+                            <span className="flex items-center gap-1 text-green-600">
+                              <TrendingUp className="h-4 w-4" />
+                              +{row.qoq}%
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm">
+                            <span className="flex items-center gap-1 text-green-600">
+                              <TrendingUp className="h-4 w-4" />
+                              +{row.yoy}%
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Quarterly Insights */}
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-xl">
+                <div className="flex items-center gap-3 mb-4">
+                  <BarChart3 className="h-5 w-5 text-[#005C84]" />
+                  <h3 className="text-lg font-semibold text-gray-900">Quarterly Trend Analysis</h3>
+                </div>
+                <ul className="space-y-3">
+                  {[
+                    { text: 'Consistent Growth: Q1 2025 outperforms all 2024 quarters across every key metric.', icon: CheckCircle, color: 'text-green-600' },
+                    { text: 'Accelerating Lead Gen: 64% QoQ growth in leads indicates successful campaign optimization.', icon: TrendingUp, color: 'text-blue-600' },
+                    { text: 'Conversion Excellence: 0.93% conversion rate in Q1 2025 is the highest in 5 quarters.', icon: Target, color: 'text-purple-600' },
+                    { text: 'Seasonal Patterns: Q3 typically strongest, but Q1 2025 breaks pattern with record performance.', icon: Activity, color: 'text-orange-600' }
+                  ].map((insight, index) => (
+                    <li key={index} className="flex gap-3">
+                      <insight.icon className={`h-5 w-5 ${insight.color} flex-shrink-0 mt-0.5`} />
+                      <span className="text-gray-700">{insight.text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Year-over-Year Tab */}
+          {activeTab === 'yoy' && (
+            <div className="space-y-8 animate-fadeIn">
+              {/* YoY Comparison Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {[
+                  { title: 'Website Performance YoY', current: 15739, previous: 13245, change: 18.8, diff: 2494, unit: 'sessions' },
+                  { title: 'Social Media Reach YoY', current: 36307, previous: 28450, change: 27.6, diff: 7857, unit: 'impressions' },
+                  { title: 'Email Engagement YoY', current: 68.4, previous: 58.0, change: 17.9, diff: 10.4, unit: '% open rate', isPercent: true },
+                  { title: 'Lead Generation YoY', current: 146, previous: 92, change: 58.7, diff: 54, unit: 'leads' }
+                ].map((metric, index) => (
+                  <div key={index} className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-xl">
+                    <h4 className="text-sm font-semibold text-gray-600 mb-4">{metric.title}</h4>
+                    <div className="flex justify-between items-end mb-3">
+                      <div className="text-3xl font-bold text-[#005C84]">
+                        {metric.isPercent ? `${metric.current}%` : formatNumber(metric.current)}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-gray-500">Q1 2024</div>
+                        <div className="text-lg font-semibold text-gray-600">
+                          {metric.isPercent ? `${metric.previous}%` : formatNumber(metric.previous)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center pt-3 border-t">
+                      <span className="flex items-center gap-1 text-green-600 text-sm font-medium">
+                        <TrendingUp className="h-4 w-4" />
+                        {metric.change}% YoY
+                      </span>
+                      <span className="text-sm text-gray-600">
+                        +{metric.isPercent ? `${metric.diff}pp` : formatNumber(metric.diff)} {!metric.isPercent && metric.unit}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* YoY Trend Chart */}
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">Year-over-Year Performance Trend</h3>
+                  <div className="flex gap-2">
+                    {(['quarterly', 'monthly', 'annual'] as ChartView[]).map(view => (
+                      <button
+                        key={view}
+                        onClick={() => setYoyChartView(view)}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                          yoyChartView === view
+                            ? 'bg-[#005C84] text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {view.charAt(0).toUpperCase() + view.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <ResponsiveContainer width="100%" height={350}>
+                  <LineChart data={[
+                    { period: 'Q1 2024', website: 13245, social: 28450, email: 58.0, leads: 92 },
+                    { period: 'Q2 2024', website: 12890, social: 26780, email: 60.2, leads: 78 },
+                    { period: 'Q3 2024', website: 14567, social: 31200, email: 62.5, leads: 105 },
+                    { period: 'Q4 2024', website: 14053, social: 29890, email: 62.1, leads: 89 },
+                    { period: 'Q1 2025', website: 15739, social: 36307, email: 68.4, leads: 146 }
+                  ]}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="period" />
+                    <YAxis yAxisId="left" />
+                    <YAxis yAxisId="right" orientation="right" />
+                    <Tooltip />
+                    <Legend />
+                    <Line yAxisId="left" type="monotone" dataKey="website" stroke="#005C84" name="Website Sessions" strokeWidth={2} />
+                    <Line yAxisId="left" type="monotone" dataKey="social" stroke="#55A51C" name="Social Impressions" strokeWidth={2} />
+                    <Line yAxisId="right" type="monotone" dataKey="email" stroke="#8b5cf6" name="Email Open Rate %" strokeWidth={2} />
+                    <Line yAxisId="right" type="monotone" dataKey="leads" stroke="#f59e0b" name="New Leads" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* YoY Insights */}
+              <div className="bg-gradient-to-br from-blue-50 to-green-50 p-6 rounded-xl">
+                <div className="flex items-center gap-3 mb-4">
+                  <Activity className="h-5 w-5 text-[#005C84]" />
+                  <h3 className="text-lg font-semibold text-gray-900">Year-over-Year Insights</h3>
+                </div>
+                <ul className="space-y-3">
+                  {[
+                    'Sustained Growth: All channels show positive YoY growth, with social media leading at 27.6%.',
+                    'Quality Improvement: Email open rates improved 17.9% YoY while maintaining list size.',
+                    'ROI Enhancement: Marketing efficiency improved 33% YoY (2.4x to 3.2x ROI).',
+                    '2025 Projection: At current growth rate, 2025 will exceed 2024 performance by 25-30%.'
+                  ].map((insight, index) => (
+                    <li key={index} className="flex gap-3">
+                      <ChevronRight className="h-5 w-5 text-[#55A51C] flex-shrink-0 mt-0.5" />
+                      <span className="text-gray-700">{insight}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer Status Bar */}
+        <div className="bg-gray-50 px-10 py-4 border-t border-gray-200 flex justify-between items-center text-sm">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <div className={`h-2 w-2 rounded-full ${connectionStatus === 'connected' ? 'bg-green-500' : 'bg-red-500'}`} />
+              <span className="text-gray-600">
+                {connectionStatus === 'connected' ? 'Live Data' : 'Disconnected'}
+              </span>
+            </div>
+            <span className="text-gray-500">
+              Last updated: {lastUpdate.toLocaleTimeString()}
+            </span>
+          </div>
+          <div className="flex items-center gap-4">
+            <button className="flex items-center gap-2 text-gray-600 hover:text-[#005C84] transition-colors">
+              <Download className="h-4 w-4" />
+              Export Report
+            </button>
+            <button className="flex items-center gap-2 text-gray-600 hover:text-[#005C84] transition-colors">
+              <Settings className="h-4 w-4" />
+              Settings
+            </button>
+            <button 
+              onClick={loadInitialData}
+              className="flex items-center gap-2 text-gray-600 hover:text-[#005C84] transition-colors"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ExecutiveDashboard;

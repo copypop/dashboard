@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAAT Dashboard - Test</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 600px;
+            width: 90%;
+        }
+        h1 {
+            color: #005C84;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #6c757d;
+            margin-bottom: 30px;
+        }
+        .instructions {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .instructions h3 {
+            color: #005C84;
+            margin-top: 0;
+        }
+        .instructions ol {
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin-bottom: 10px;
+        }
+        .code {
+            background: #282c34;
+            color: #abe338;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #005C84 0%, #55A51C 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 30px;
+        }
+        .feature {
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #55A51C;
+        }
+        .feature h4 {
+            margin: 0 0 8px 0;
+            color: #005C84;
+        }
+        .feature p {
+            margin: 0;
+            color: #6c757d;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 CAAT Marketing Dashboard</h1>
+        <p class="subtitle">Modern, AI-Powered Analytics Platform</p>
+        
+        <div class="instructions">
+            <h3>📋 How to Run Your Dashboard</h3>
+            <ol>
+                <li>Open a terminal/command prompt</li>
+                <li>Navigate to the project folder: <span class="code">cd caat-dashboard</span></li>
+                <li>Install dependencies (if not done): <span class="code">npm install</span></li>
+                <li>Start the development server: <span class="code">npm run dev</span></li>
+                <li>Open your browser to: <span class="code">http://localhost:5173</span></li>
+                <li>Upload your Excel file: <strong>CAAT_Dashboard_Data_2025.xlsx</strong></li>
+            </ol>
+        </div>
+
+        <div class="features">
+            <div class="feature">
+                <h4>📊 Dynamic Charts</h4>
+                <p>Real-time data visualization with Recharts</p>
+            </div>
+            <div class="feature">
+                <h4>🤖 AI Insights</h4>
+                <p>Smart analysis and recommendations</p>
+            </div>
+            <div class="feature">
+                <h4>📈 Comparisons</h4>
+                <p>Quarter-over-quarter and year-over-year analysis</p>
+            </div>
+            <div class="feature">
+                <h4>🎯 Target Tracking</h4>
+                <p>Monitor performance against goals</p>
+            </div>
+            <div class="feature">
+                <h4>📱 Responsive</h4>
+                <p>Works on all devices</p>
+            </div>
+            <div class="feature">
+                <h4>🛡️ Error Handling</h4>
+                <p>Resilient with smart fallbacks</p>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px; padding: 20px; background: #e8f5e9; border-radius: 8px;">
+            <h3 style="color: #2e7d32; margin-top: 0;">✅ Dashboard Features</h3>
+            <ul style="color: #424242; padding-left: 20px;">
+                <li>Excel file upload and parsing</li>
+                <li>Website analytics tracking</li>
+                <li>Traffic source analysis</li>
+                <li>Social media performance</li>
+                <li>Email campaign metrics</li>
+                <li>Lead generation tracking</li>
+                <li>AI-powered insights generation</li>
+                <li>Period selection and comparison</li>
+                <li>Target vs actual performance</li>
+                <li>Export capabilities (coming soon)</li>
+            </ul>
+        </div>
+
+        <div style="margin-top: 30px; text-align: center;">
+            <p style="color: #6c757d;">Ready to explore your data?</p>
+            <a href="#" class="button" onclick="alert('Please run: npm run dev'); return false;">
+                Launch Dashboard
+            </a>
+        </div>
+    </div>
+</body>
+</html>
