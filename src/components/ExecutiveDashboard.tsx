@@ -284,15 +284,18 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
         d.year === yearNum && d.quarter === quarter
       );
 
+      // Calculate meaningful conversion rate: Marketing Qualified Leads / New Prospects
+      const newProspects = leadsData.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0);
+      const marketingQualified = leadsData.reduce((sum, d) => sum + (d.marketingQualified || 0), 0);
+      const prospectToMQLRate = newProspects > 0 ? (marketingQualified / newProspects) * 100 : 0;
+
       return {
         period: q,
         sessions: websiteData.reduce((sum, d) => sum + (d.sessions || 0), 0),
         socialImpressions: socialData.reduce((sum, d) => sum + (d.impressions || 0), 0),
         emailsSent: emailData.reduce((sum, d) => sum + (d.emailsSent || 0), 0),
-        leads: leadsData.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0),
-        conversionRate: websiteData.length > 0 ? 
-          (leadsData.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0) / 
-           websiteData.reduce((sum, d) => sum + (d.sessions || 0), 0)) * 100 : 0
+        leads: newProspects,
+        conversionRate: prospectToMQLRate
       };
     });
   };
@@ -502,6 +505,8 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       description="The combined number of unique individuals exposed to your brand across all digital marketing channels during the selected period."
                       calculation="Website Unique Visitors + Social Media Impressions"
                       example="If you had 50,000 website visitors and 100,000 social impressions, your total digital reach is 150,000+"
+                      icon="info"
+                      position="bottom"
                     />
                   </div>
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.digitalReach.formatted}+</div>
@@ -525,6 +530,8 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       description="A session is a group of user interactions with your website that take place within a given time frame (typically 30 minutes of activity)."
                       calculation="Total number of sessions recorded by website analytics"
                       example="One user visiting your site 3 times in a day counts as 3 sessions"
+                      icon="info"
+                      position="bottom"
                     />
                   </div>
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.sessions.formatted}</div>
@@ -548,6 +555,8 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       description="The percentage of people who interacted with your social media content after seeing it. Higher rates indicate more compelling content."
                       calculation="(Reactions + Comments + Shares) ÷ Impressions × 100"
                       example="1,000 engagements from 20,000 impressions = 5% engagement rate"
+                      icon="info"
+                      position="bottom"
                     />
                   </div>
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.socialEngagement.formatted}</div>
@@ -571,6 +580,8 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       description="The percentage of email recipients who opened your email. Industry benchmark is typically 15-25% for B2B marketing."
                       calculation="Unique Opens ÷ Emails Delivered × 100"
                       example="500 opens from 2,000 delivered emails = 25% open rate"
+                      icon="info"
+                      position="bottom"
                     />
                   </div>
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.emailOpenRate.formatted}</div>
@@ -594,6 +605,8 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       description="The number of new potential customers who have shown interest in your products/services by providing contact information."
                       calculation="Sum of all new marketing prospects in the period"
                       example="Form submissions, content downloads, demo requests, newsletter signups"
+                      icon="info"
+                      position="bottom"
                     />
                   </div>
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.newLeads.formatted}</div>
@@ -617,6 +630,8 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       description="Revenue generated for every dollar spent on marketing. A 3.2x ROI means $3.20 revenue for every $1 spent."
                       calculation="(Revenue from Marketing - Marketing Cost) ÷ Marketing Cost"
                       example="$100,000 revenue from $30,000 spend = 2.3x ROI"
+                      icon="info"
+                      position="bottom"
                     />
                   </div>
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.marketingROI.formatted}</div>
@@ -639,8 +654,11 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                     Performance Overview - Quarterly Trend
                     <InfoTooltip 
                       title="Multi-Channel Performance Trend"
-                      description="Visualizes key performance metrics across all marketing channels over time to identify trends and patterns."
-                      calculation="Aggregated metrics by selected time period"
+                      description="Visualizes key performance metrics across all marketing channels over time to identify trends and patterns. The qualification rate shows how effectively new prospects are converted to marketing qualified leads (MQLs)."
+                      calculation="Lead Qualification Rate = (Marketing Qualified Leads ÷ New Prospects) × 100"
+                      example="A 7% rate means 7 out of 100 prospects become qualified leads"
+                      icon="info"
+                      position="bottom"
                     />
                   </h3>
                   <div className="flex gap-2">
@@ -670,14 +688,22 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                     <Legend />
                     <Bar yAxisId="left" dataKey="sessions" fill="#005C84" name="Website Sessions" />
                     <Bar yAxisId="left" dataKey="socialImpressions" fill="#55A51C" name="Social Impressions" />
-                    <Line yAxisId="right" type="monotone" dataKey="conversionRate" stroke="#ff7300" name="Conversion Rate (%)" strokeWidth={2} />
+                    <Line yAxisId="right" type="monotone" dataKey="conversionRate" stroke="#ff7300" name="Lead Qualification Rate (%)" strokeWidth={2} />
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
 
               {/* Historical Performance Timeline */}
               <div className="bg-white p-6 rounded-xl border border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6">Historical Performance Timeline</h3>
+                <h3 className="flex items-center text-lg font-semibold text-gray-900 mb-6">
+                  Historical Performance Timeline
+                  <InfoTooltip 
+                    title="Performance History"
+                    description="Shows your digital reach performance over the last 5 quarters to identify growth trends and seasonal patterns."
+                    calculation="Quarter-over-quarter and year-over-year comparisons"
+                    example="A 10% QoQ means 10% growth from last quarter"
+                  />
+                </h3>
                 <div className="flex gap-5 overflow-x-auto pb-2">
                   {getTimelineData().map((period, index) => (
                     <div
@@ -766,7 +792,28 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       </div>
                       {metric.negative && <AlertCircle className="h-4 w-4 text-orange-500" />}
                     </div>
-                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{metric.label}</div>
+                    <div className="flex items-center text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                      {metric.label}
+                      <InfoTooltip 
+                        title={metric.label}
+                        description={
+                          metric.label === 'Total Sessions' ? 'Total number of visits to your website during the selected period. One user can have multiple sessions.' :
+                          metric.label === 'Pageviews' ? 'Total number of pages viewed. Repeated views of a single page are counted.' :
+                          metric.label === 'Unique Visitors' ? 'Number of individual users who visited your site, counted only once regardless of how many times they visit.' :
+                          metric.label === 'Bounce Rate' ? 'Percentage of single-page sessions where users left without interacting. Lower is better.' :
+                          'Metric description'
+                        }
+                        calculation={
+                          metric.label === 'Bounce Rate' ? 'Single-page sessions ÷ Total sessions × 100' :
+                          metric.label === 'Pageviews' ? 'Sum of all page views in the period' :
+                          undefined
+                        }
+                        example={
+                          metric.label === 'Bounce Rate' ? 'Below 40% is excellent, 40-55% is average, above 70% needs improvement' :
+                          undefined
+                        }
+                      />
+                    </div>
                     <div className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</div>
                     <div className={`text-sm ${metric.negative ? 'text-orange-600' : 'text-gray-500'}`}>{metric.subtext}</div>
                   </div>
@@ -791,7 +838,16 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   <table className="w-full">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Source</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                          <div className="flex items-center">
+                            Source
+                            <InfoTooltip 
+                              title="Traffic Source Types"
+                              description="Categories of how visitors find and access your website"
+                              position="bottom"
+                            />
+                          </div>
+                        </th>
                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Sessions</th>
                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">% of Total</th>
                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Trend</th>
@@ -901,7 +957,31 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                         return sources;
                       })().map((row, index) => (
                         <tr key={index} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 text-sm font-medium text-gray-900">{row.source}</td>
+                          <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                            <div className="flex items-center">
+                              {row.source}
+                              <InfoTooltip 
+                                title={row.source}
+                                description={
+                                  row.source === 'Direct Traffic' ? 'Visitors who typed your URL directly into their browser, used bookmarks, or clicked links in emails/documents.' :
+                                  row.source === 'Search Engines' ? 'Visitors who found your site through search engines like Google, Bing, or Yahoo via organic (non-paid) search results.' :
+                                  row.source === 'Social Media' ? 'Visitors who clicked links to your site from social media platforms like LinkedIn, Twitter, Facebook, or Instagram.' :
+                                  row.source === 'External Referrers' ? 'Visitors who clicked links from other websites, blogs, or online directories that link to your site.' :
+                                  row.source === 'Internal Referrers' ? 'Navigation between pages within your own website or from your other owned properties.' :
+                                  'Traffic from this source'
+                                }
+                                example={
+                                  row.source === 'Direct Traffic' ? 'Often indicates brand awareness and returning visitors' :
+                                  row.source === 'Search Engines' ? 'Indicates SEO effectiveness and content relevance' :
+                                  row.source === 'Social Media' ? 'Shows social media marketing effectiveness' :
+                                  row.source === 'External Referrers' ? 'Indicates backlink quality and partnerships' :
+                                  undefined
+                                }
+                                icon="help"
+                                position="right"
+                              />
+                            </div>
+                          </td>
                           <td className="px-6 py-4 text-sm text-gray-600">{row.sessions.toLocaleString()}</td>
                           <td className="px-6 py-4 text-sm text-gray-600">{row.percent}%</td>
                           <td className="px-6 py-4 text-sm">
@@ -1002,7 +1082,31 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                         <metric.icon className="h-5 w-5 text-indigo-600" />
                       </div>
                     </div>
-                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{metric.label}</div>
+                    <div className="flex items-center text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                      {metric.label}
+                      <InfoTooltip 
+                        title={metric.label}
+                        description={
+                          metric.label === 'Search Impressions' ? 'The number of times your website appeared in search results. More impressions mean better visibility.' :
+                          metric.label === 'Search Clicks' ? 'The number of times users clicked on your website in search results. Higher clicks indicate compelling titles and descriptions.' :
+                          metric.label === 'Click-Through Rate' ? 'The percentage of impressions that resulted in clicks. Industry average is 2-3% for organic search.' :
+                          metric.label === 'Avg. Position' ? 'Your average ranking position in search results. Position 1-3 is top of first page, 4-10 is rest of first page.' :
+                          'SEO metric'
+                        }
+                        calculation={
+                          metric.label === 'Click-Through Rate' ? 'Clicks ÷ Impressions × 100' :
+                          metric.label === 'Avg. Position' ? 'Average of all keyword positions weighted by impressions' :
+                          undefined
+                        }
+                        example={
+                          metric.label === 'Search Impressions' ? '10,000 impressions means your site was shown 10,000 times in search' :
+                          metric.label === 'Search Clicks' ? 'Focus on improving meta titles and descriptions to increase clicks' :
+                          metric.label === 'Click-Through Rate' ? 'A 3% CTR means 3 clicks per 100 impressions' :
+                          metric.label === 'Avg. Position' ? 'Position 1.0 is the top result, 11.0 is top of page 2' :
+                          undefined
+                        }
+                      />
+                    </div>
                     <div className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</div>
                     <div className={`flex items-center gap-1 text-sm ${metric.positive ? 'text-green-600' : 'text-red-600'}`}>
                       {metric.positive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
@@ -1018,10 +1122,12 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                 <h3 className="flex items-center text-lg font-semibold text-gray-900 mb-6">
                   Search Performance Trends
                   <InfoTooltip 
-                    title="SEO Performance Metrics"
-                    description="Tracks your website's visibility in search engines. Higher impressions and CTR indicate better SEO performance."
-                    calculation="Data from Google Search Console or similar tools"
-                    example="CTR of 2% means 2 clicks per 100 impressions"
+                    title="Search Performance Trends"
+                    description="Visual representation of your website's search engine visibility over time. Track impressions (how often you appear), clicks (traffic generated), and CTR (effectiveness) to measure SEO success."
+                    calculation="Monthly data from search console: Impressions (blue bars), Clicks (green bars), CTR% (orange line)"
+                    example="Rising impressions with flat clicks suggests you need to improve your meta titles and descriptions to be more compelling"
+                    icon="info"
+                    position="bottom"
                   />
                 </h3>
                 <ResponsiveContainer width="100%" height={300}>
@@ -1054,14 +1160,17 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               </div>
 
               {/* Monthly Search Performance Table */}
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="bg-white rounded-xl border border-gray-200">
                 <div className="px-6 py-4 border-b border-gray-200">
                   <h3 className="flex items-center text-lg font-semibold text-gray-900">
                     Monthly Search Performance
                     <InfoTooltip 
-                      title="Search Metrics Breakdown"
-                      description="Month-by-month breakdown of search visibility metrics to track SEO progress and identify seasonal patterns."
-                      calculation="Monthly aggregation of search console data"
+                      title="Monthly Search Performance"
+                      description="Month-by-month breakdown of your search engine visibility and performance. Track how your SEO efforts are improving over time and identify seasonal patterns in search behavior."
+                      calculation="Data aggregated monthly from search console showing impressions (visibility), clicks (traffic), CTR (effectiveness), and average position (ranking)"
+                      example="If clicks increase but CTR decreases, you're getting more visibility but may need better meta descriptions"
+                      icon="info"
+                      position="bottom"
                     />
                   </h3>
                 </div>
@@ -1181,7 +1290,35 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                         <metric.icon className="h-5 w-5 text-green-600" />
                       </div>
                     </div>
-                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{metric.label}</div>
+                    <div className="flex items-center text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                      {metric.label}
+                      <InfoTooltip 
+                        title={metric.label}
+                        description={
+                          metric.label === 'Total Impressions' ? 'The total number of times your social media content was displayed to users across all platforms. This includes both unique and repeat views.' :
+                          metric.label === 'Engagement Rate' ? 'The percentage of people who interacted with your content after seeing it. A key indicator of content quality and audience relevance.' :
+                          metric.label === 'Total Reactions' ? 'The sum of all positive interactions on your posts including likes, hearts, thumbs up, and other reaction types across all platforms.' :
+                          metric.label === 'Click-Through Rate' ? 'The percentage of people who clicked on links in your social media posts after seeing them. Indicates how compelling your call-to-action is.' :
+                          'Social media metric'
+                        }
+                        calculation={
+                          metric.label === 'Total Impressions' ? 'Sum of all post impressions across LinkedIn, Twitter, Facebook, and Instagram' :
+                          metric.label === 'Engagement Rate' ? '(Reactions + Comments + Shares + Clicks) ÷ Total Impressions × 100' :
+                          metric.label === 'Total Reactions' ? 'Sum of all likes, hearts, and other reactions across all platforms' :
+                          metric.label === 'Click-Through Rate' ? 'Link Clicks ÷ Total Impressions × 100' :
+                          undefined
+                        }
+                        example={
+                          metric.label === 'Total Impressions' ? '1M impressions means your content was viewed 1 million times' :
+                          metric.label === 'Engagement Rate' ? '3-5% is good for B2B, 1-3% is typical for B2C' :
+                          metric.label === 'Total Reactions' ? 'Higher reactions indicate content resonates with your audience' :
+                          metric.label === 'Click-Through Rate' ? '1-2% CTR is average, above 3% is excellent' :
+                          undefined
+                        }
+                        icon="info"
+                        position="bottom"
+                      />
+                    </div>
                     <div className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</div>
                     <div className="flex items-center gap-1 text-sm text-green-600">
                       <TrendingUp className="h-4 w-4" />
@@ -1193,15 +1330,17 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               </div>
 
               {/* Platform Performance Table */}
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="bg-white rounded-xl border border-gray-200">
                 <div className="px-6 py-4 border-b border-gray-200">
                   <h3 className="flex items-center text-lg font-semibold text-gray-900">
                     Platform Performance
                     <InfoTooltip 
-                      title="Social Media Platform Analysis"
-                      description="Compares performance across different social media platforms to identify where your audience is most engaged."
-                      calculation="Platform-specific engagement metrics"
-                      example="LinkedIn typically has higher B2B engagement rates"
+                      title="Platform Performance Comparison"
+                      description="Detailed breakdown of your social media performance across LinkedIn, Twitter, Facebook, and Instagram. Helps identify which platforms drive the most value for your brand."
+                      calculation="Platform-specific metrics aggregated for the selected time period"
+                      example="If LinkedIn shows 5% engagement vs Twitter's 2%, focus more content on LinkedIn"
+                      icon="info"
+                      position="bottom"
                     />
                   </h3>
                 </div>
@@ -1335,7 +1474,35 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                         <metric.icon className="h-5 w-5 text-purple-600" />
                       </div>
                     </div>
-                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{metric.label}</div>
+                    <div className="flex items-center text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                      {metric.label}
+                      <InfoTooltip 
+                        title={metric.label}
+                        description={
+                          metric.label === 'Emails Sent' ? 'The total number of email messages successfully delivered to recipients inboxes. This excludes bounced emails and those blocked by spam filters.' :
+                          metric.label === 'Open Rate' ? 'The percentage of delivered emails that were opened by recipients. A key indicator of subject line effectiveness and sender reputation.' :
+                          metric.label === 'Click Rate' ? 'The percentage of delivered emails where recipients clicked at least one link. Shows how engaging your email content and calls-to-action are.' :
+                          metric.label === 'Conversion Rate' ? 'The percentage of email recipients who completed a desired action like making a purchase, signing up, or downloading content after clicking through.' :
+                          'Email marketing metric'
+                        }
+                        calculation={
+                          metric.label === 'Emails Sent' ? 'Total delivered emails (sent minus bounces)' :
+                          metric.label === 'Open Rate' ? 'Unique Opens ÷ Emails Delivered × 100' :
+                          metric.label === 'Click Rate' ? 'Unique Clicks ÷ Emails Delivered × 100' :
+                          metric.label === 'Conversion Rate' ? 'Conversions ÷ Emails Delivered × 100' :
+                          undefined
+                        }
+                        example={
+                          metric.label === 'Emails Sent' ? 'If you send 10,000 emails and 500 bounce, 9,500 were delivered' :
+                          metric.label === 'Open Rate' ? 'B2B average: 15-25%, B2C average: 15-20%. Above 25% is excellent' :
+                          metric.label === 'Click Rate' ? 'B2B average: 2.5-3%, B2C average: 2-2.5%. Above 5% is excellent' :
+                          metric.label === 'Conversion Rate' ? 'Average: 2-5%. Highly targeted campaigns can achieve 10%+' :
+                          undefined
+                        }
+                        icon="info"
+                        position="bottom"
+                      />
+                    </div>
                     <div className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</div>
                     <div className="flex items-center gap-1 text-sm text-green-600">
                       <TrendingUp className="h-4 w-4" />
@@ -1391,16 +1558,18 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
             <div className="space-y-8 animate-fadeIn">
               {/* Lead Funnel */}
               <div className="bg-white rounded-xl border border-gray-200 p-8">
-                <h3 className="flex items-center text-lg font-semibold text-gray-900 mb-6">
+                <h3 className="flex items-center text-lg font-semibold text-gray-900 mb-8">
                   Lead Generation Funnel - {selectedPeriod} {selectedYear}
                   <InfoTooltip 
                     title="Lead Conversion Funnel"
                     description="Visualizes how prospects move through your marketing funnel from initial interest to qualified opportunities."
                     calculation="Stage-to-stage conversion rates"
                     example="MQL = Marketing Qualified Lead, SAL = Sales Accepted Lead"
+                    icon="info"
+                    position="bottom"
                   />
                 </h3>
-                <div className="space-y-3">
+                <div className="relative max-w-3xl mx-auto">
                   {(() => {
                     // Get actual data based on selected period
                     const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
@@ -1415,30 +1584,118 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                     const salesAccepted = currentLeads.reduce((sum, d) => sum + (d.salesAccepted || 0), 0);
                     const opportunities = currentLeads.reduce((sum, d) => sum + (d.opportunities || 0), 0);
                     
+                    // Calculate conversion rates
+                    const mqlRate = newProspects > 0 ? Math.round((marketingQualified / newProspects) * 100) : 0;
+                    const salRate = marketingQualified > 0 ? Math.round((salesAccepted / marketingQualified) * 100) : 0;
+                    const oppRate = salesAccepted > 0 ? Math.round((opportunities / salesAccepted) * 100) : 0;
+                    
                     // Build funnel stages with actual data
                     const stages = [
-                      { stage: 'New Prospects', value: newProspects, color: 'from-blue-500 to-blue-600', width: '100%' },
-                      { stage: 'Marketing Qualified', value: marketingQualified, color: 'from-indigo-500 to-indigo-600', width: marketingQualified > 0 ? `${(marketingQualified / newProspects * 100)}%` : '0%' },
-                      { stage: 'Sales Accepted', value: salesAccepted, color: 'from-purple-500 to-purple-600', width: salesAccepted > 0 ? `${(salesAccepted / newProspects * 100)}%` : '0%' },
-                      { stage: 'Opportunities', value: opportunities, color: 'from-pink-500 to-pink-600', width: opportunities > 0 ? `${(opportunities / newProspects * 100)}%` : '0%' }
+                      { 
+                        stage: 'New Prospects', 
+                        value: newProspects, 
+                        color: 'bg-gradient-to-r from-blue-500 to-blue-600',
+                        width: 100,
+                        conversionRate: null
+                      },
+                      { 
+                        stage: 'Marketing Qualified Leads (MQL)', 
+                        value: marketingQualified, 
+                        color: 'bg-gradient-to-r from-indigo-500 to-indigo-600',
+                        width: 75,
+                        conversionRate: mqlRate
+                      },
+                      { 
+                        stage: 'Sales Accepted Leads (SAL)', 
+                        value: salesAccepted, 
+                        color: 'bg-gradient-to-r from-purple-500 to-purple-600',
+                        width: 50,
+                        conversionRate: salRate
+                      },
+                      { 
+                        stage: 'Opportunities', 
+                        value: opportunities, 
+                        color: 'bg-gradient-to-r from-pink-500 to-pink-600',
+                        width: 25,
+                        conversionRate: oppRate
+                      }
                     ];
                     
-                    return stages.map((stage, index) => (
-                    <div key={index} className="relative">
-                      <div 
-                        className={`relative bg-gradient-to-r ${stage.color} text-white rounded-lg p-4 transition-all hover:scale-[1.02] hover:shadow-lg`}
-                        style={{ width: stage.width }}
-                      >
-                        <div className="flex justify-between items-center">
-                          <span className="font-semibold">{stage.stage}</span>
-                          <span className="text-2xl font-bold">{stage.value}</span>
+                    return (
+                      <div className="space-y-1">
+                        {stages.map((stage, index) => (
+                          <div key={index} className="relative">
+                            {/* Conversion Rate Label */}
+                            {stage.conversionRate !== null && index > 0 && (
+                              <div className="absolute -top-0 left-1/2 transform -translate-x-1/2 -translate-y-full pb-2">
+                                <div className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-semibold">
+                                  {stage.conversionRate}% conversion
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Funnel Stage */}
+                            <div className="relative" style={{ paddingLeft: `${(100 - stage.width) / 2}%`, paddingRight: `${(100 - stage.width) / 2}%` }}>
+                              <div 
+                                className={`${stage.color} text-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer`}
+                              >
+                                <div className="px-6 py-5">
+                                  <div className="flex justify-between items-center">
+                                    <div>
+                                      <div className="text-sm font-medium text-white/90 mb-1">{stage.stage}</div>
+                                      <div className="text-3xl font-bold">{formatNumber(stage.value)}</div>
+                                    </div>
+                                    <div className="text-right">
+                                      {index === 0 && (
+                                        <div className="text-sm font-medium text-white/90">100%</div>
+                                      )}
+                                      {index > 0 && newProspects > 0 && (
+                                        <div className="text-sm font-medium text-white/90">
+                                          {Math.round((stage.value / newProspects) * 100)}% of total
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Arrow Between Stages */}
+                            {index < stages.length - 1 && (
+                              <div className="flex justify-center my-2">
+                                <div className="relative">
+                                  <ChevronDown className="h-6 w-6 text-gray-400 animate-pulse" />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        
+                        {/* Summary Stats */}
+                        <div className="mt-8 pt-6 border-t border-gray-200">
+                          <div className="grid grid-cols-3 gap-4 text-center">
+                            <div>
+                              <div className="text-2xl font-bold text-gray-900">
+                                {newProspects > 0 ? Math.round((opportunities / newProspects) * 100) : 0}%
+                              </div>
+                              <div className="text-xs text-gray-500">Overall Conversion</div>
+                            </div>
+                            <div>
+                              <div className="text-2xl font-bold text-green-600">
+                                {formatNumber(opportunities)}
+                              </div>
+                              <div className="text-xs text-gray-500">Total Opportunities</div>
+                            </div>
+                            <div>
+                              <div className="text-2xl font-bold text-blue-600">
+                                {formatNumber(newProspects)}
+                              </div>
+                              <div className="text-xs text-gray-500">Total Prospects</div>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      {index < 4 && (
-                        <ChevronDown className="h-5 w-5 text-gray-400 mx-auto mt-2" />
-                      )}
-                    </div>
-                  ));
+                    );
                   })()}
                 </div>
               </div>
