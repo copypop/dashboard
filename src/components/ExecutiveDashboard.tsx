@@ -37,7 +37,6 @@ import {
   ChevronRight,
   ChevronDown,
   RefreshCw,
-  Download,
   Settings,
   Eye,
   MousePointer,
@@ -46,6 +45,7 @@ import {
 import { dataService } from '../services/dataService';
 import type { DashboardData } from '../types/dashboard';
 import { InfoTooltip } from './ui/InfoTooltip';
+import { ExportButton } from './ui/ExportButton';
 
 type TabType = 'overview' | 'website' | 'seo' | 'social' | 'email' | 'leads' | 'trends' | 'quarterly' | 'yoy';
 type PeriodType = 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'Year';
@@ -406,9 +406,14 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
         <div className="text-center">
-          <RefreshCw className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <img 
+            src="/caat-logo-en.svg" 
+            alt="CAAT Pension Plan" 
+            className="h-12 w-auto mx-auto mb-4 opacity-50"
+          />
+          <RefreshCw className="h-8 w-8 animate-spin text-[#005C84] mx-auto mb-4" />
           <p className="text-gray-600">Loading dashboard data...</p>
         </div>
       </div>
@@ -417,14 +422,19 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
         <div className="text-center max-w-md">
+          <img 
+            src="/caat-logo-en.svg" 
+            alt="CAAT Pension Plan" 
+            className="h-12 w-auto mx-auto mb-4 opacity-50"
+          />
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to Load Dashboard</h3>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
             onClick={loadInitialData}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-[#005C84] text-white rounded-lg hover:bg-[#004A6C] transition-colors"
           >
             Retry
           </button>
@@ -437,24 +447,32 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-5">
       <div className="max-w-[1400px] mx-auto bg-white rounded-[20px] shadow-[0_20px_60px_rgba(0,0,0,0.1)] overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#005C84] to-[#55A51C] p-8 text-white">
+        <div className="bg-gradient-to-r from-white via-gray-50 to-[#005C84] p-8">
           <div className="flex justify-between items-start mb-6">
-            <div>
-              <h1 className="text-3xl font-semibold mb-2">Digital Analytics Executive Dashboard</h1>
-              <p className="text-base opacity-90">Comprehensive Performance Overview - CAAT Pension Plan</p>
-              <p className="text-sm opacity-80 mt-2">{getDateRange()}</p>
+            <div className="flex items-start gap-6">
+              {/* CAAT Logo */}
+              <img 
+                src="/caat-logo-en.svg" 
+                alt="CAAT Pension Plan" 
+                className="h-16 w-auto mt-1"
+              />
+              <div>
+                <h1 className="text-3xl font-semibold mb-2 text-[#005C84]">Marketing Dashboard</h1>
+                <p className="text-base text-gray-700">Comprehensive Performance Overview</p>
+                <p className="text-sm text-gray-600 mt-2">{getDateRange()}</p>
+              </div>
             </div>
             
             {/* Period Selector */}
-            <div className="flex gap-2 bg-white/20 p-1 rounded-lg backdrop-blur-sm">
+            <div className="flex gap-2 bg-white p-1.5 rounded-lg shadow-md border border-gray-200">
               {(['Q1', 'Q2', 'Q3', 'Q4', 'Year'] as PeriodType[]).map(period => (
                 <button
                   key={period}
                   onClick={() => setSelectedPeriod(period)}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${
                     selectedPeriod === period
-                      ? 'bg-white text-[#005C84]'
-                      : 'text-white hover:bg-white/20'
+                      ? 'bg-[#005C84] text-white shadow-sm'
+                      : 'text-gray-700 bg-gray-50 hover:bg-gray-100 hover:text-[#005C84]'
                   }`}
                 >
                   {period} {period !== 'Year' ? selectedYear : `${selectedYear} Full Year`}
@@ -464,9 +482,9 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
           </div>
 
           {/* Comparison Controls */}
-          <div className="flex items-center gap-6 bg-white/10 rounded-lg px-4 py-3 backdrop-blur-sm">
+          <div className="flex items-center gap-6 bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-200">
             <div className="flex items-center gap-3">
-              <label className="text-sm opacity-90">Compare Periods</label>
+              <label className="text-sm text-gray-700 font-medium">Compare Periods</label>
               <button
                 onClick={() => {
                   setCompareEnabled(!compareEnabled);
@@ -475,7 +493,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   }
                 }}
                 className={`relative w-12 h-6 rounded-full transition-colors ${
-                  compareEnabled ? 'bg-[#55A51C]' : 'bg-white/30'
+                  compareEnabled ? 'bg-[#55A51C]' : 'bg-gray-300'
                 }`}
               >
                 <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
@@ -498,12 +516,21 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="px-3 py-1.5 rounded-md bg-white text-[#005C84] text-sm ml-auto"
+              className="px-3 py-1.5 rounded-md bg-white text-[#005C84] text-sm"
             >
               <option value={2025}>2025</option>
               <option value={2024}>2024</option>
               <option value={2023}>2023</option>
             </select>
+            
+            {/* Export Button */}
+            <div className="ml-auto">
+              <ExportButton 
+                elementId={`tab-content-${activeTab}`}
+                fileName={`caat-${activeTab}-${selectedPeriod}-${selectedYear}`}
+                title={`CAAT Marketing Dashboard - ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Report`}
+              />
+            </div>
           </div>
         </div>
 
@@ -540,7 +567,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
         <div className="p-10">
           {/* Executive Summary Tab */}
           {activeTab === 'overview' && kpis && (
-            <div className="space-y-8 animate-fadeIn">
+            <div id="tab-content-overview" className="space-y-8 animate-fadeIn">
               {/* KPI Cards Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all hover:-translate-y-1 relative">
@@ -807,7 +834,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
 
           {/* Website Analytics Tab */}
           {activeTab === 'website' && data && (
-            <div className="space-y-8 animate-fadeIn">
+            <div id="tab-content-website" className="space-y-8 animate-fadeIn">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
                 {(() => {
                   // Get data for selected period
@@ -1165,7 +1192,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
 
           {/* SEO & Search Tab */}
           {activeTab === 'seo' && data && (
-            <div className="space-y-8 animate-fadeIn">
+            <div id="tab-content-seo" className="space-y-8 animate-fadeIn">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
                 {(() => {
                   // Get data for selected period
@@ -1425,7 +1452,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
 
           {/* Social Media Tab */}
           {activeTab === 'social' && data && (
-            <div className="space-y-8 animate-fadeIn">
+            <div id="tab-content-social" className="space-y-8 animate-fadeIn">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
                 {(() => {
                   const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
@@ -1695,7 +1722,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
 
           {/* Email Marketing Tab */}
           {activeTab === 'email' && data && (
-            <div className="space-y-8 animate-fadeIn">
+            <div id="tab-content-email" className="space-y-8 animate-fadeIn">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
                 {(() => {
                   const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
@@ -1892,7 +1919,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
 
           {/* Leads & Pipeline Tab */}
           {activeTab === 'leads' && data && (
-            <div className="space-y-8 animate-fadeIn">
+            <div id="tab-content-leads" className="space-y-8 animate-fadeIn">
               {/* Lead Funnel */}
               <div className="bg-white rounded-xl border border-gray-200 p-8">
                 <h3 className="flex items-center text-lg font-semibold text-gray-900 mb-8">
@@ -2141,7 +2168,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
 
           {/* Quarterly Analysis Tab */}
           {activeTab === 'quarterly' && data && (
-            <div className="space-y-8 animate-fadeIn">
+            <div id="tab-content-quarterly" className="space-y-8 animate-fadeIn">
               <div className="bg-white rounded-xl border border-gray-200 p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="text-lg font-semibold text-gray-900">Quarterly Performance Comparison - All Channels</h3>
@@ -2319,7 +2346,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
 
           {/* Year-over-Year Tab */}
           {activeTab === 'yoy' && (
-            <div className="space-y-8 animate-fadeIn">
+            <div id="tab-content-yoy" className="space-y-8 animate-fadeIn">
               {/* YoY Comparison Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
@@ -2435,10 +2462,6 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <button className="flex items-center gap-2 text-gray-600 hover:text-[#005C84] transition-colors">
-              <Download className="h-4 w-4" />
-              Export Report
-            </button>
             <button className="flex items-center gap-2 text-gray-600 hover:text-[#005C84] transition-colors">
               <Settings className="h-4 w-4" />
               Settings
