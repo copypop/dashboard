@@ -45,6 +45,7 @@ import {
 } from 'lucide-react';
 import { dataService } from '../services/dataService';
 import type { DashboardData } from '../types/dashboard';
+import { InfoTooltip } from './ui/InfoTooltip';
 
 type TabType = 'overview' | 'website' | 'seo' | 'social' | 'email' | 'leads' | 'trends' | 'quarterly' | 'yoy';
 type PeriodType = 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'Year';
@@ -492,9 +493,17 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
             <div className="space-y-8 animate-fadeIn">
               {/* KPI Cards Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all hover:-translate-y-1 relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#005C84] to-[#55A51C]" />
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Total Digital Reach</div>
+                <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all hover:-translate-y-1 relative">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#005C84] to-[#55A51C] rounded-l-xl" />
+                  <div className="flex items-center text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                    Total Digital Reach
+                    <InfoTooltip 
+                      title="Total Digital Reach"
+                      description="The combined number of unique individuals exposed to your brand across all digital marketing channels during the selected period."
+                      calculation="Website Unique Visitors + Social Media Impressions"
+                      example="If you had 50,000 website visitors and 100,000 social impressions, your total digital reach is 150,000+"
+                    />
+                  </div>
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.digitalReach.formatted}+</div>
                   <div className={`flex items-center gap-1 text-sm ${kpis.digitalReach.trend.direction === 'up' ? 'text-green-600' : 'text-red-600'}`}>
                     {kpis.digitalReach.trend.direction === 'up' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
@@ -507,9 +516,17 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   )}
                 </div>
 
-                <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all hover:-translate-y-1 relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#005C84] to-[#55A51C]" />
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Website Sessions</div>
+                <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all hover:-translate-y-1 relative">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#005C84] to-[#55A51C] rounded-l-xl" />
+                  <div className="flex items-center text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                    Website Sessions
+                    <InfoTooltip 
+                      title="Website Sessions"
+                      description="A session is a group of user interactions with your website that take place within a given time frame (typically 30 minutes of activity)."
+                      calculation="Total number of sessions recorded by website analytics"
+                      example="One user visiting your site 3 times in a day counts as 3 sessions"
+                    />
+                  </div>
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.sessions.formatted}</div>
                   <div className={`flex items-center gap-1 text-sm ${kpis.sessions.trend.direction === 'up' ? 'text-green-600' : 'text-red-600'}`}>
                     {kpis.sessions.trend.direction === 'up' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
@@ -522,9 +539,17 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   )}
                 </div>
 
-                <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all hover:-translate-y-1 relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#005C84] to-[#55A51C]" />
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Social Engagement Rate</div>
+                <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all hover:-translate-y-1 relative">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#005C84] to-[#55A51C] rounded-l-xl" />
+                  <div className="flex items-center text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                    Social Engagement Rate
+                    <InfoTooltip 
+                      title="Social Engagement Rate"
+                      description="The percentage of people who interacted with your social media content after seeing it. Higher rates indicate more compelling content."
+                      calculation="(Reactions + Comments + Shares) ÷ Impressions × 100"
+                      example="1,000 engagements from 20,000 impressions = 5% engagement rate"
+                    />
+                  </div>
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.socialEngagement.formatted}</div>
                   <div className={`flex items-center gap-1 text-sm ${kpis.socialEngagement.trend.direction === 'up' ? 'text-green-600' : 'text-red-600'}`}>
                     {kpis.socialEngagement.trend.direction === 'up' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
@@ -537,9 +562,17 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   )}
                 </div>
 
-                <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all hover:-translate-y-1 relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#005C84] to-[#55A51C]" />
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Email Open Rate</div>
+                <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all hover:-translate-y-1 relative">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#005C84] to-[#55A51C] rounded-l-xl" />
+                  <div className="flex items-center text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                    Email Open Rate
+                    <InfoTooltip 
+                      title="Email Open Rate"
+                      description="The percentage of email recipients who opened your email. Industry benchmark is typically 15-25% for B2B marketing."
+                      calculation="Unique Opens ÷ Emails Delivered × 100"
+                      example="500 opens from 2,000 delivered emails = 25% open rate"
+                    />
+                  </div>
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.emailOpenRate.formatted}</div>
                   <div className={`flex items-center gap-1 text-sm ${kpis.emailOpenRate.trend.direction === 'up' ? 'text-green-600' : 'text-red-600'}`}>
                     {kpis.emailOpenRate.trend.direction === 'up' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
@@ -552,9 +585,17 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   )}
                 </div>
 
-                <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all hover:-translate-y-1 relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#005C84] to-[#55A51C]" />
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">New Leads Generated</div>
+                <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all hover:-translate-y-1 relative">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#005C84] to-[#55A51C] rounded-l-xl" />
+                  <div className="flex items-center text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                    New Leads Generated
+                    <InfoTooltip 
+                      title="New Marketing Prospects"
+                      description="The number of new potential customers who have shown interest in your products/services by providing contact information."
+                      calculation="Sum of all new marketing prospects in the period"
+                      example="Form submissions, content downloads, demo requests, newsletter signups"
+                    />
+                  </div>
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.newLeads.formatted}</div>
                   <div className={`flex items-center gap-1 text-sm ${kpis.newLeads.trend.direction === 'up' ? 'text-green-600' : 'text-red-600'}`}>
                     {kpis.newLeads.trend.direction === 'up' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
@@ -567,9 +608,17 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   )}
                 </div>
 
-                <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all hover:-translate-y-1 relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#005C84] to-[#55A51C]" />
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Marketing ROI</div>
+                <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all hover:-translate-y-1 relative">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#005C84] to-[#55A51C] rounded-l-xl" />
+                  <div className="flex items-center text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                    Marketing ROI
+                    <InfoTooltip 
+                      title="Marketing Return on Investment"
+                      description="Revenue generated for every dollar spent on marketing. A 3.2x ROI means $3.20 revenue for every $1 spent."
+                      calculation="(Revenue from Marketing - Marketing Cost) ÷ Marketing Cost"
+                      example="$100,000 revenue from $30,000 spend = 2.3x ROI"
+                    />
+                  </div>
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.marketingROI.formatted}</div>
                   <div className="flex items-center gap-1 text-sm text-green-600">
                     <TrendingUp className="h-4 w-4" />
@@ -586,7 +635,14 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               {/* Performance Overview Chart */}
               <div className="bg-white p-6 rounded-xl border border-gray-200">
                 <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900">Performance Overview - Quarterly Trend</h3>
+                  <h3 className="flex items-center text-lg font-semibold text-gray-900">
+                    Performance Overview - Quarterly Trend
+                    <InfoTooltip 
+                      title="Multi-Channel Performance Trend"
+                      description="Visualizes key performance metrics across all marketing channels over time to identify trends and patterns."
+                      calculation="Aggregated metrics by selected time period"
+                    />
+                  </h3>
                   <div className="flex gap-2">
                     {(['quarterly', 'monthly', 'yoy'] as ChartView[]).map(view => (
                       <button
@@ -721,7 +777,15 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               {/* Traffic Sources Table */}
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900">Traffic Sources Breakdown</h3>
+                  <h3 className="flex items-center text-lg font-semibold text-gray-900">
+                    Traffic Sources Breakdown
+                    <InfoTooltip 
+                      title="Traffic Sources Analysis"
+                      description="Shows where your website visitors are coming from. Understanding traffic sources helps optimize marketing channel investments."
+                      calculation="Each source percentage × Total website sessions"
+                      example="Direct Traffic: Users typing URL directly or using bookmarks"
+                    />
+                  </h3>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -951,7 +1015,15 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
 
               {/* Search Performance Chart */}
               <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6">Search Performance Trends</h3>
+                <h3 className="flex items-center text-lg font-semibold text-gray-900 mb-6">
+                  Search Performance Trends
+                  <InfoTooltip 
+                    title="SEO Performance Metrics"
+                    description="Tracks your website's visibility in search engines. Higher impressions and CTR indicate better SEO performance."
+                    calculation="Data from Google Search Console or similar tools"
+                    example="CTR of 2% means 2 clicks per 100 impressions"
+                  />
+                </h3>
                 <ResponsiveContainer width="100%" height={300}>
                   <ComposedChart data={(() => {
                     const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
@@ -984,7 +1056,14 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               {/* Monthly Search Performance Table */}
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900">Monthly Search Performance</h3>
+                  <h3 className="flex items-center text-lg font-semibold text-gray-900">
+                    Monthly Search Performance
+                    <InfoTooltip 
+                      title="Search Metrics Breakdown"
+                      description="Month-by-month breakdown of search visibility metrics to track SEO progress and identify seasonal patterns."
+                      calculation="Monthly aggregation of search console data"
+                    />
+                  </h3>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -1116,7 +1195,15 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               {/* Platform Performance Table */}
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900">Platform Performance</h3>
+                  <h3 className="flex items-center text-lg font-semibold text-gray-900">
+                    Platform Performance
+                    <InfoTooltip 
+                      title="Social Media Platform Analysis"
+                      description="Compares performance across different social media platforms to identify where your audience is most engaged."
+                      calculation="Platform-specific engagement metrics"
+                      example="LinkedIn typically has higher B2B engagement rates"
+                    />
+                  </h3>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -1261,7 +1348,15 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
 
               {/* Email Campaign Performance */}
               <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6">Campaign Performance Trends</h3>
+                <h3 className="flex items-center text-lg font-semibold text-gray-900 mb-6">
+                  Campaign Performance Trends
+                  <InfoTooltip 
+                    title="Email Campaign Metrics"
+                    description="Tracks email marketing effectiveness over time. Industry benchmarks: Open Rate 15-25%, Click Rate 2-5%."
+                    calculation="Rates calculated per campaign and aggregated"
+                    example="Conv Rate estimates conversions from email clicks"
+                  />
+                </h3>
                 <ResponsiveContainer width="100%" height={300}>
                   <AreaChart data={(() => {
                     const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
@@ -1296,7 +1391,15 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
             <div className="space-y-8 animate-fadeIn">
               {/* Lead Funnel */}
               <div className="bg-white rounded-xl border border-gray-200 p-8">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6">Lead Generation Funnel - {selectedPeriod} {selectedYear}</h3>
+                <h3 className="flex items-center text-lg font-semibold text-gray-900 mb-6">
+                  Lead Generation Funnel - {selectedPeriod} {selectedYear}
+                  <InfoTooltip 
+                    title="Lead Conversion Funnel"
+                    description="Visualizes how prospects move through your marketing funnel from initial interest to qualified opportunities."
+                    calculation="Stage-to-stage conversion rates"
+                    example="MQL = Marketing Qualified Lead, SAL = Sales Accepted Lead"
+                  />
+                </h3>
                 <div className="space-y-3">
                   {(() => {
                     // Get actual data based on selected period
@@ -1445,7 +1548,15 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
             <div className="space-y-8 animate-fadeIn">
               {/* Cross-Channel Performance Radar Chart */}
               <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6">Cross-Channel Performance Index</h3>
+                <h3 className="flex items-center text-lg font-semibold text-gray-900 mb-6">
+                  Cross-Channel Performance Index
+                  <InfoTooltip 
+                    title="Relative Channel Performance"
+                    description="Normalized comparison (0-100 scale) of how each marketing channel performs relative to targets and benchmarks."
+                    calculation="Each channel scored based on KPI achievement vs targets"
+                    example="Score of 80+ indicates excellent performance"
+                  />
+                </h3>
                 <ResponsiveContainer width="100%" height={400}>
                   <RadarChart data={(() => {
                     if (!data) return [];
