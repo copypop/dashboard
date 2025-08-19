@@ -70,6 +70,17 @@
   .animate-fadeIn {
     animation: fadeIn 0.2s ease-in-out;
   }
+  
+  /* Ensure tooltips and modals appear above all content */
+  .tooltip-portal {
+    z-index: 9999 !important;
+  }
+  
+  /* Allow tooltips to escape containers while preserving scroll */
+  .tooltip-container {
+    position: relative;
+    z-index: 1;
+  }
 }
 
 @keyframes fadeIn {

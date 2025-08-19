@@ -553,7 +553,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       calculation="Website Unique Visitors + Social Media Impressions"
                       example="If you had 50,000 website visitors and 100,000 social impressions, your total digital reach is 150,000+"
                       icon="info"
-                      position="bottom"
+                      position="auto"
                     />
                   </div>
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.digitalReach.formatted}+</div>
@@ -578,7 +578,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       calculation="Total number of sessions recorded by website analytics"
                       example="One user visiting your site 3 times in a day counts as 3 sessions"
                       icon="info"
-                      position="bottom"
+                      position="auto"
                     />
                   </div>
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.sessions.formatted}</div>
@@ -603,7 +603,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       calculation="(Reactions + Comments + Shares) ÷ Impressions × 100"
                       example="1,000 engagements from 20,000 impressions = 5% engagement rate"
                       icon="info"
-                      position="bottom"
+                      position="auto"
                     />
                   </div>
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.socialEngagement.formatted}</div>
@@ -628,7 +628,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       calculation="Unique Opens ÷ Emails Delivered × 100"
                       example="500 opens from 2,000 delivered emails = 25% open rate"
                       icon="info"
-                      position="bottom"
+                      position="auto"
                     />
                   </div>
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.emailOpenRate.formatted}</div>
@@ -653,7 +653,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       calculation="Sum of all new marketing prospects in the period"
                       example="Form submissions, content downloads, demo requests, newsletter signups"
                       icon="info"
-                      position="bottom"
+                      position="auto"
                     />
                   </div>
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.newLeads.formatted}</div>
@@ -678,7 +678,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       calculation="(Revenue from Marketing - Marketing Cost) ÷ Marketing Cost"
                       example="$100,000 revenue from $30,000 spend = 2.3x ROI"
                       icon="info"
-                      position="bottom"
+                      position="auto"
                     />
                   </div>
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.marketingROI.formatted}</div>
@@ -705,7 +705,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       calculation="Lead Qualification Rate = (Marketing Qualified Leads ÷ New Prospects) × 100"
                       example="A 7% rate means 7 out of 100 prospects become qualified leads"
                       icon="info"
-                      position="bottom"
+                      position="auto"
                     />
                   </h3>
                   <div className="flex gap-2">
@@ -939,7 +939,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                           undefined
                         }
                         icon="info"
-                        position="bottom"
+                        position="auto"
                       />
                     </div>
                     <div className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</div>
@@ -997,7 +997,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                             <InfoTooltip 
                               title="Traffic Source Types"
                               description="Categories of how visitors find and access your website"
-                              position="bottom"
+                              position="auto"
                             />
                           </div>
                         </th>
@@ -1131,7 +1131,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                                   undefined
                                 }
                                 icon="help"
-                                position="right"
+                                position="auto"
                               />
                             </div>
                           </td>
@@ -1291,7 +1291,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                           undefined
                         }
                         icon="info"
-                        position="bottom"
+                        position="auto"
                       />
                     </div>
                     <div className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</div>
@@ -1327,7 +1327,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                     calculation="Monthly data from search console: Impressions (blue bars), Clicks (green bars), CTR% (orange line)"
                     example="Rising impressions with flat clicks suggests you need to improve your meta titles and descriptions to be more compelling"
                     icon="info"
-                    position="bottom"
+                    position="auto"
                   />
                 </h3>
                 <ResponsiveContainer width="100%" height={300}>
@@ -1370,7 +1370,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       calculation="Data aggregated monthly from search console showing impressions (visibility), clicks (traffic), CTR (effectiveness), and average position (ranking)"
                       example="If clicks increase but CTR decreases, you're getting more visibility but may need better meta descriptions"
                       icon="info"
-                      position="bottom"
+                      position="auto"
                     />
                   </h3>
                 </div>
@@ -1555,7 +1555,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                           undefined
                         }
                         icon="info"
-                        position="bottom"
+                        position="auto"
                       />
                     </div>
                     <div className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</div>
@@ -1590,7 +1590,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       calculation="Platform-specific metrics aggregated for the selected time period"
                       example="If LinkedIn shows 5% engagement vs Twitter's 2%, focus more content on LinkedIn"
                       icon="info"
-                      position="bottom"
+                      position="auto"
                     />
                   </h3>
                 </div>
@@ -1826,7 +1826,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                           undefined
                         }
                         icon="info"
-                        position="bottom"
+                        position="auto"
                       />
                     </div>
                     <div className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</div>
@@ -1903,7 +1903,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                     calculation="Stage-to-stage conversion rates"
                     example="MQL = Marketing Qualified Lead, SAL = Sales Accepted Lead"
                     icon="info"
-                    position="bottom"
+                    position="auto"
                   />
                 </h3>
                 <div className="relative max-w-3xl mx-auto">
