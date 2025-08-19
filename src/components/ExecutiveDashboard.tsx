@@ -46,7 +46,7 @@ import {
 import { dataService } from '../services/dataService';
 import type { DashboardData } from '../types/dashboard';
 
-type TabType = 'overview' | 'website' | 'social' | 'email' | 'leads' | 'trends' | 'quarterly' | 'yoy';
+type TabType = 'overview' | 'website' | 'seo' | 'social' | 'email' | 'leads' | 'trends' | 'quarterly' | 'yoy';
 type PeriodType = 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'Year';
 type ChartView = 'quarterly' | 'monthly' | 'yoy' | 'annual' | 'all' | 'traffic' | 'engagement' | 'conversion';
 
@@ -178,8 +178,14 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
 
     const digitalReach = totalVisitors + totalImpressions;
     const prevReach = prevVisitors + 45000; // Placeholder for previous social impressions
+    
+    // Generate previous period label
+    const previousPeriodLabel = currentQuarter 
+      ? `${previousQuarter} ${previousYear}` 
+      : `${selectedYear - 1}`;
 
     return {
+      previousPeriodLabel,
       digitalReach: {
         value: digitalReach,
         formatted: formatNumber(digitalReach),
@@ -243,7 +249,19 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
   const getQuarterlyChartData = () => {
     if (!data) return [];
     
-    const quarters = ['Q1 2024', 'Q2 2024', 'Q3 2024', 'Q4 2024', 'Q1 2025'];
+    // Get last 5 quarters dynamically
+    const quarters = [];
+    let year = selectedYear;
+    let quarter = selectedPeriod === 'Year' ? 4 : parseInt(selectedPeriod.substring(1));
+    
+    for (let i = 0; i < 5; i++) {
+      quarters.unshift(`Q${quarter} ${year}`);
+      quarter--;
+      if (quarter === 0) {
+        quarter = 4;
+        year--;
+      }
+    }
     
     return quarters.map(q => {
       const [quarter, year] = q.split(' ');
@@ -279,13 +297,58 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
   };
 
   const getTimelineData = () => {
-    return [
-      { period: 'Q1 2024', value: 72000, label: '72K', change: null },
-      { period: 'Q2 2024', value: 68000, label: '68K', change: -5.6 },
-      { period: 'Q3 2024', value: 75000, label: '75K', change: 10.3 },
-      { period: 'Q4 2024', value: 71000, label: '71K', change: -5.3 },
-      { period: 'Q1 2025', value: 87000, label: '87K', change: 20.8 }
-    ];
+    if (!data) return [];
+    
+    // Get last 5 quarters of actual data
+    const quarters = [];
+    let year = selectedYear;
+    let quarter = selectedPeriod === 'Year' ? 4 : parseInt(selectedPeriod.substring(1));
+    
+    for (let i = 0; i < 5; i++) {
+      quarters.unshift({ q: `Q${quarter}`, y: year });
+      quarter--;
+      if (quarter === 0) {
+        quarter = 4;
+        year--;
+      }
+    }
+    
+    return quarters.map((q, index) => {
+      const websiteData = data.websiteData.filter(d => 
+        d.year === q.y && d.quarter === q.q
+      );
+      const socialData = data.socialData.filter(d => 
+        d.year === q.y && d.quarter === q.q
+      );
+      
+      const sessions = websiteData.reduce((sum, d) => sum + (d.sessions || 0), 0);
+      const impressions = socialData.reduce((sum, d) => sum + (d.impressions || 0), 0);
+      const totalReach = sessions + impressions;
+      
+      // Calculate change from previous period
+      let change = null;
+      if (index > 0 && quarters[index - 1]) {
+        const prevData = quarters[index - 1];
+        const prevWebsite = data.websiteData.filter(d => 
+          d.year === prevData.y && d.quarter === prevData.q
+        );
+        const prevSocial = data.socialData.filter(d => 
+          d.year === prevData.y && d.quarter === prevData.q
+        );
+        const prevReach = prevWebsite.reduce((sum, d) => sum + (d.sessions || 0), 0) +
+                         prevSocial.reduce((sum, d) => sum + (d.impressions || 0), 0);
+        if (prevReach > 0) {
+          change = ((totalReach - prevReach) / prevReach * 100).toFixed(1);
+        }
+      }
+      
+      return {
+        period: `${q.q} ${q.y}`,
+        value: totalReach,
+        label: formatNumber(totalReach),
+        change: change ? parseFloat(change) : null
+      };
+    });
   };
 
   if (isLoading) {
@@ -397,6 +460,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
           {[
             { id: 'overview', label: 'Executive Summary' },
             { id: 'website', label: 'Website Analytics' },
+            { id: 'seo', label: 'SEO & Search' },
             { id: 'social', label: 'Social Media' },
             { id: 'email', label: 'Email Marketing' },
             { id: 'leads', label: 'Leads & Pipeline' },
@@ -434,11 +498,11 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.digitalReach.formatted}+</div>
                   <div className={`flex items-center gap-1 text-sm ${kpis.digitalReach.trend.direction === 'up' ? 'text-green-600' : 'text-red-600'}`}>
                     {kpis.digitalReach.trend.direction === 'up' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                    {kpis.digitalReach.trend.value.toFixed(1)}% vs Q4 2024
+                    {kpis.digitalReach.trend.value.toFixed(1)}% vs {kpis.previousPeriodLabel}
                   </div>
                   {compareEnabled && (
                     <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
-                      Q4 2024: {formatNumber(kpis.digitalReach.previousValue)}
+                      {kpis.previousPeriodLabel}: {formatNumber(kpis.digitalReach.previousValue)}
                     </div>
                   )}
                 </div>
@@ -449,11 +513,11 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.sessions.formatted}</div>
                   <div className={`flex items-center gap-1 text-sm ${kpis.sessions.trend.direction === 'up' ? 'text-green-600' : 'text-red-600'}`}>
                     {kpis.sessions.trend.direction === 'up' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                    {kpis.sessions.trend.value.toFixed(1)}% vs Q4 2024
+                    {kpis.sessions.trend.value.toFixed(1)}% vs {kpis.previousPeriodLabel}
                   </div>
                   {compareEnabled && (
                     <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
-                      Q4 2024: {formatNumber(kpis.sessions.previousValue)}
+                      {kpis.previousPeriodLabel}: {formatNumber(kpis.sessions.previousValue)}
                     </div>
                   )}
                 </div>
@@ -464,11 +528,11 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.socialEngagement.formatted}</div>
                   <div className={`flex items-center gap-1 text-sm ${kpis.socialEngagement.trend.direction === 'up' ? 'text-green-600' : 'text-red-600'}`}>
                     {kpis.socialEngagement.trend.direction === 'up' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                    {kpis.socialEngagement.trend.value.toFixed(2)}pp vs Q4 2024
+                    {kpis.socialEngagement.trend.value.toFixed(2)}pp vs {kpis.previousPeriodLabel}
                   </div>
                   {compareEnabled && (
                     <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
-                      Q4 2024: {kpis.socialEngagement.previousValue}%
+                      {kpis.previousPeriodLabel}: {kpis.socialEngagement.previousValue}%
                     </div>
                   )}
                 </div>
@@ -479,11 +543,11 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.emailOpenRate.formatted}</div>
                   <div className={`flex items-center gap-1 text-sm ${kpis.emailOpenRate.trend.direction === 'up' ? 'text-green-600' : 'text-red-600'}`}>
                     {kpis.emailOpenRate.trend.direction === 'up' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                    {kpis.emailOpenRate.trend.value.toFixed(1)}pp vs Q4 2024
+                    {kpis.emailOpenRate.trend.value.toFixed(1)}pp vs {kpis.previousPeriodLabel}
                   </div>
                   {compareEnabled && (
                     <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
-                      Q4 2024: {kpis.emailOpenRate.previousValue}%
+                      {kpis.previousPeriodLabel}: {kpis.emailOpenRate.previousValue}%
                     </div>
                   )}
                 </div>
@@ -494,11 +558,11 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.newLeads.formatted}</div>
                   <div className={`flex items-center gap-1 text-sm ${kpis.newLeads.trend.direction === 'up' ? 'text-green-600' : 'text-red-600'}`}>
                     {kpis.newLeads.trend.direction === 'up' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                    {kpis.newLeads.trend.value.toFixed(0)}% vs Q4 2024
+                    {kpis.newLeads.trend.value.toFixed(0)}% vs {kpis.previousPeriodLabel}
                   </div>
                   {compareEnabled && (
                     <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
-                      Q4 2024: {kpis.newLeads.previousValue}
+                      {kpis.previousPeriodLabel}: {kpis.newLeads.previousValue}
                     </div>
                   )}
                 </div>
@@ -513,7 +577,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   </div>
                   {compareEnabled && (
                     <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
-                      Q4 2024: {kpis.marketingROI.previousValue}x
+                      {kpis.previousPeriodLabel}: {kpis.marketingROI.previousValue}x
                     </div>
                   )}
                 </div>
@@ -708,6 +772,175 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
             </div>
           )}
 
+          {/* SEO & Search Tab */}
+          {activeTab === 'seo' && data && (
+            <div className="space-y-8 animate-fadeIn">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                {(() => {
+                  // Get data for selected period
+                  const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
+                  const currentSearch = data.searchData.filter(d => 
+                    d.year === selectedYear && 
+                    (currentQuarter ? d.quarter === currentQuarter : true)
+                  );
+                  
+                  // Previous period for comparison
+                  const previousQuarter = currentQuarter === 'Q1' ? 'Q4' : 
+                                         currentQuarter === 'Q2' ? 'Q1' :
+                                         currentQuarter === 'Q3' ? 'Q2' : 'Q3';
+                  const previousYear = currentQuarter === 'Q1' ? selectedYear - 1 : selectedYear;
+                  const previousSearch = data.searchData.filter(d => 
+                    d.year === previousYear && d.quarter === previousQuarter
+                  );
+                  
+                  const totalImpressions = currentSearch.reduce((sum, d) => sum + (d.impressions || 0), 0);
+                  const totalClicks = currentSearch.reduce((sum, d) => sum + (d.clicks || 0), 0);
+                  const avgCTR = currentSearch.length > 0 ? 
+                    currentSearch.reduce((sum, d) => sum + (d.ctr || 0), 0) / currentSearch.length : 0;
+                  const avgPosition = currentSearch.length > 0 ? 
+                    currentSearch.reduce((sum, d) => sum + (d.avgPosition || 0), 0) / currentSearch.length : 0;
+                  
+                  // Previous period metrics
+                  const prevImpressions = previousSearch.reduce((sum, d) => sum + (d.impressions || 0), 0);
+                  const prevClicks = previousSearch.reduce((sum, d) => sum + (d.clicks || 0), 0);
+                  const prevCTR = previousSearch.length > 0 ? 
+                    previousSearch.reduce((sum, d) => sum + (d.ctr || 0), 0) / previousSearch.length : 0;
+                  const prevPosition = previousSearch.length > 0 ? 
+                    previousSearch.reduce((sum, d) => sum + (d.avgPosition || 0), 0) / previousSearch.length : 0;
+                  
+                  return [
+                    { 
+                      label: 'Search Impressions', 
+                      value: formatNumber(totalImpressions), 
+                      trend: prevImpressions > 0 ? ((totalImpressions - prevImpressions) / prevImpressions * 100).toFixed(1) : 0, 
+                      icon: Eye,
+                      positive: totalImpressions > prevImpressions
+                    },
+                    { 
+                      label: 'Search Clicks', 
+                      value: formatNumber(totalClicks), 
+                      trend: prevClicks > 0 ? ((totalClicks - prevClicks) / prevClicks * 100).toFixed(1) : 0, 
+                      icon: MousePointer,
+                      positive: totalClicks > prevClicks
+                    },
+                    { 
+                      label: 'Click-Through Rate', 
+                      value: `${avgCTR.toFixed(2)}%`, 
+                      trend: (avgCTR - prevCTR).toFixed(2), 
+                      icon: Target,
+                      positive: avgCTR > prevCTR
+                    },
+                    { 
+                      label: 'Avg. Position', 
+                      value: avgPosition.toFixed(1), 
+                      trend: (prevPosition - avgPosition).toFixed(1), // Lower is better for position
+                      icon: BarChart3,
+                      positive: avgPosition < prevPosition // Lower position is better
+                    }
+                  ].map((metric, index) => (
+                  <div key={index} className="bg-white p-6 rounded-xl border border-gray-200">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="p-2 bg-indigo-50 rounded-lg">
+                        <metric.icon className="h-5 w-5 text-indigo-600" />
+                      </div>
+                    </div>
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{metric.label}</div>
+                    <div className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</div>
+                    <div className={`flex items-center gap-1 text-sm ${metric.positive ? 'text-green-600' : 'text-red-600'}`}>
+                      {metric.positive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                      {Math.abs(Number(metric.trend))}{metric.label.includes('Rate') ? 'pp' : metric.label.includes('Position') ? ' pos' : '%'} vs Previous
+                    </div>
+                  </div>
+                ))
+                })()}
+              </div>
+
+              {/* Search Performance Chart */}
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">Search Performance Trends</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <ComposedChart data={(() => {
+                    const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
+                    const searchData = data.searchData.filter(d => 
+                      d.year === selectedYear && 
+                      (currentQuarter ? d.quarter === currentQuarter : true)
+                    );
+                    
+                    return searchData.map(d => ({
+                      month: d.monthName.slice(0, 3),
+                      impressions: d.impressions,
+                      clicks: d.clicks,
+                      ctr: d.ctr,
+                      position: d.avgPosition
+                    }));
+                  })()}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="month" />
+                    <YAxis yAxisId="left" />
+                    <YAxis yAxisId="right" orientation="right" />
+                    <Tooltip />
+                    <Legend />
+                    <Bar yAxisId="left" dataKey="impressions" fill="#6366f1" name="Impressions" />
+                    <Bar yAxisId="left" dataKey="clicks" fill="#10b981" name="Clicks" />
+                    <Line yAxisId="right" type="monotone" dataKey="ctr" stroke="#f59e0b" strokeWidth={2} name="CTR %" />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Monthly Search Performance Table */}
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900">Monthly Search Performance</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Month</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Impressions</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Clicks</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">CTR</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Avg Position</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Trend</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {(() => {
+                        const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
+                        const searchData = data.searchData.filter(d => 
+                          d.year === selectedYear && 
+                          (currentQuarter ? d.quarter === currentQuarter : true)
+                        );
+                        
+                        return searchData.map((row, index) => {
+                          const prevMonth = searchData[index - 1];
+                          const trend = prevMonth ? 
+                            ((row.clicks - prevMonth.clicks) / prevMonth.clicks * 100).toFixed(1) : 0;
+                          
+                          return (
+                            <tr key={index} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 text-sm font-medium text-gray-900">{row.monthName}</td>
+                              <td className="px-6 py-4 text-sm text-gray-600">{row.impressions.toLocaleString()}</td>
+                              <td className="px-6 py-4 text-sm text-gray-600">{row.clicks.toLocaleString()}</td>
+                              <td className="px-6 py-4 text-sm text-gray-600">{row.ctr.toFixed(2)}%</td>
+                              <td className="px-6 py-4 text-sm text-gray-600">{row.avgPosition.toFixed(1)}</td>
+                              <td className="px-6 py-4">
+                                <div className={`flex items-center gap-1 text-sm ${Number(trend) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  {Number(trend) >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                                  {Math.abs(Number(trend))}%
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Social Media Tab */}
           {activeTab === 'social' && data && (
             <div className="space-y-8 animate-fadeIn">
@@ -804,12 +1037,67 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {[
-                        { platform: 'LinkedIn', impressions: 18456, engagements: 1243, engRate: 6.73, ctr: 3.21, status: 'EXCELLENT' },
-                        { platform: 'Twitter/X', impressions: 9234, engagements: 412, engRate: 4.46, ctr: 2.18, status: 'GOOD' },
-                        { platform: 'Facebook', impressions: 5892, engagements: 198, engRate: 3.36, ctr: 1.92, status: 'STABLE' },
-                        { platform: 'Instagram', impressions: 2725, engagements: 100, engRate: 3.67, ctr: 2.75, status: 'GROWING' }
-                      ].map((row, index) => (
+                      {(() => {
+                        const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
+                        const currentSocial = data.socialData.filter(d => 
+                          d.year === selectedYear && 
+                          (currentQuarter ? d.quarter === currentQuarter : true)
+                        );
+                        
+                        // Group by platform and aggregate
+                        const platformData = currentSocial.reduce((acc, item) => {
+                          const platform = item.platform || 'Other';
+                          if (!acc[platform]) {
+                            acc[platform] = {
+                              impressions: 0,
+                              engagements: 0,
+                              clicks: 0
+                            };
+                          }
+                          acc[platform].impressions += item.impressions || 0;
+                          acc[platform].engagements += (item.reactions || 0) + (item.comments || 0) + (item.shares || 0);
+                          acc[platform].clicks += item.clicks || 0;
+                          return acc;
+                        }, {} as Record<string, any>);
+                        
+                        // Convert to array and calculate rates
+                        const platforms = Object.entries(platformData).map(([platform, data]: [string, any]) => {
+                          const engRate = data.impressions > 0 ? (data.engagements / data.impressions * 100) : 0;
+                          const ctr = data.impressions > 0 ? (data.clicks / data.impressions * 100) : 0;
+                          
+                          // Determine status based on engagement rate
+                          let status = 'STABLE';
+                          if (engRate > 5) status = 'EXCELLENT';
+                          else if (engRate > 4) status = 'GOOD';
+                          else if (engRate > 3) status = 'GROWING';
+                          
+                          return {
+                            platform,
+                            impressions: data.impressions,
+                            engagements: data.engagements,
+                            engRate: engRate.toFixed(2),
+                            ctr: ctr.toFixed(2),
+                            status
+                          };
+                        });
+                        
+                        // Sort by impressions descending
+                        platforms.sort((a, b) => b.impressions - a.impressions);
+                        
+                        // If no data, show placeholder
+                        if (platforms.length === 0) {
+                          return [{
+                            platform: 'No data available',
+                            impressions: 0,
+                            engagements: 0,
+                            engRate: '0.00',
+                            ctr: '0.00',
+                            status: 'N/A'
+                          }];
+                        }
+                        
+                        return platforms;
+                      })().map((row, index) => (
                         <tr key={index} className="hover:bg-gray-50">
                           <td className="px-6 py-4 text-sm font-medium text-gray-900">{row.platform}</td>
                           <td className="px-6 py-4 text-sm text-gray-600">{row.impressions.toLocaleString()}</td>
@@ -881,11 +1169,20 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               <div className="bg-white rounded-xl border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-6">Campaign Performance Trends</h3>
                 <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={[
-                    { month: 'Jan', openRate: 65.2, clickRate: 16.8, convRate: 4.2 },
-                    { month: 'Feb', openRate: 68.9, clickRate: 18.3, convRate: 4.9 },
-                    { month: 'Mar', openRate: 71.1, clickRate: 19.5, convRate: 5.3 }
-                  ]}>
+                  <AreaChart data={(() => {
+                    const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
+                    const emailData = data.emailData.filter(d => 
+                      d.year === selectedYear && 
+                      (currentQuarter ? d.quarter === currentQuarter : true)
+                    );
+                    
+                    return emailData.map(d => ({
+                      month: d.monthName.slice(0, 3),
+                      openRate: d.emailsSent > 0 ? ((d.uniqueOpens / d.emailsSent) * 100).toFixed(1) : 0,
+                      clickRate: d.emailsSent > 0 ? ((d.uniqueClicks / d.emailsSent) * 100).toFixed(1) : 0,
+                      convRate: d.uniqueClicks > 0 ? ((d.uniqueClicks * 0.25) / d.emailsSent * 100).toFixed(1) : 0
+                    }));
+                  })()}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis dataKey="month" />
                     <YAxis />
@@ -1056,18 +1353,87 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               <div className="bg-white rounded-xl border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-6">Cross-Channel Performance Index</h3>
                 <ResponsiveContainer width="100%" height={400}>
-                  <RadarChart data={[
-                    { metric: 'Website Traffic', value: 85, fullMark: 100 },
-                    { metric: 'Social Engagement', value: 92, fullMark: 100 },
-                    { metric: 'Email Performance', value: 88, fullMark: 100 },
-                    { metric: 'Lead Generation', value: 78, fullMark: 100 },
-                    { metric: 'Content Performance', value: 82, fullMark: 100 },
-                    { metric: 'SEO Visibility', value: 75, fullMark: 100 }
-                  ]}>
+                  <RadarChart data={(() => {
+                    if (!data) return [];
+                    
+                    const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
+                    
+                    // Get data for selected period
+                    const websiteData = data.websiteData.filter(d => 
+                      d.year === selectedYear && 
+                      (currentQuarter ? d.quarter === currentQuarter : true)
+                    );
+                    const socialData = data.socialData.filter(d => 
+                      d.year === selectedYear && 
+                      (currentQuarter ? d.quarter === currentQuarter : true)
+                    );
+                    const emailData = data.emailData.filter(d => 
+                      d.year === selectedYear && 
+                      (currentQuarter ? d.quarter === currentQuarter : true)
+                    );
+                    const leadsData = data.leadsData.filter(d => 
+                      d.year === selectedYear && 
+                      (currentQuarter ? d.quarter === currentQuarter : true)
+                    );
+                    const searchData = data.searchData.filter(d => 
+                      d.year === selectedYear && 
+                      (currentQuarter ? d.quarter === currentQuarter : true)
+                    );
+                    
+                    // Calculate performance metrics (normalized to 0-100)
+                    
+                    // Website Traffic Score - based on sessions and unique visitors
+                    const totalSessions = websiteData.reduce((sum, d) => sum + (d.sessions || 0), 0);
+                    const websiteTarget = 150000; // Quarterly target
+                    const websiteScore = Math.min(100, (totalSessions / websiteTarget) * 100);
+                    
+                    // Social Engagement Score - based on engagement rate
+                    const totalImpressions = socialData.reduce((sum, d) => sum + (d.impressions || 0), 0);
+                    const totalEngagements = socialData.reduce((sum, d) => 
+                      sum + (d.reactions || 0) + (d.comments || 0) + (d.shares || 0), 0);
+                    const socialEngagementRate = totalImpressions > 0 ? (totalEngagements / totalImpressions) * 100 : 0;
+                    const socialScore = Math.min(100, socialEngagementRate * 20); // 5% engagement rate = 100 score
+                    
+                    // Email Performance Score - based on open rate and click rate
+                    const totalEmailsSent = emailData.reduce((sum, d) => sum + (d.emailsSent || 0), 0);
+                    const totalUniqueOpens = emailData.reduce((sum, d) => sum + (d.uniqueOpens || 0), 0);
+                    const totalUniqueClicks = emailData.reduce((sum, d) => sum + (d.uniqueClicks || 0), 0);
+                    const openRate = totalEmailsSent > 0 ? (totalUniqueOpens / totalEmailsSent) * 100 : 0;
+                    const clickRate = totalEmailsSent > 0 ? (totalUniqueClicks / totalEmailsSent) * 100 : 0;
+                    const emailScore = Math.min(100, ((openRate / 25) * 50) + ((clickRate / 5) * 50)); // 25% open rate + 5% click rate = 100
+                    
+                    // Lead Generation Score - based on MQL conversion
+                    const totalNewLeads = leadsData.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0);
+                    const totalMQL = leadsData.reduce((sum, d) => sum + (d.marketingQualified || 0), 0);
+                    const leadConversionRate = totalNewLeads > 0 ? (totalMQL / totalNewLeads) * 100 : 0;
+                    const leadScore = Math.min(100, leadConversionRate * 1.5); // 67% conversion = 100 score
+                    
+                    // Content Performance Score - based on pageviews per session and session duration
+                    const totalPageviews = websiteData.reduce((sum, d) => sum + (d.pageviews || 0), 0);
+                    const pagesPerSession = totalSessions > 0 ? totalPageviews / totalSessions : 0;
+                    const avgSessionDuration = websiteData.reduce((sum, d) => sum + (d.avgSessionDuration || 0), 0) / websiteData.length;
+                    const contentScore = Math.min(100, ((pagesPerSession / 4) * 50) + ((avgSessionDuration / 180) * 50)); // 4 pages + 3 min = 100
+                    
+                    // SEO Visibility Score - based on impressions and CTR
+                    const seoImpressions = searchData.reduce((sum, d) => sum + (d.impressions || 0), 0);
+                    const seoClicks = searchData.reduce((sum, d) => sum + (d.clicks || 0), 0);
+                    const seoCTR = searchData.length > 0 ? 
+                      searchData.reduce((sum, d) => sum + (d.ctr || 0), 0) / searchData.length : 0;
+                    const seoScore = Math.min(100, ((seoImpressions / 100000) * 50) + (seoCTR * 10)); // 100k impressions + 5% CTR = 100
+                    
+                    return [
+                      { metric: 'Website Traffic', value: Math.round(websiteScore), fullMark: 100 },
+                      { metric: 'Social Engagement', value: Math.round(socialScore), fullMark: 100 },
+                      { metric: 'Email Performance', value: Math.round(emailScore), fullMark: 100 },
+                      { metric: 'Lead Generation', value: Math.round(leadScore), fullMark: 100 },
+                      { metric: 'Content Performance', value: Math.round(contentScore), fullMark: 100 },
+                      { metric: 'SEO Visibility', value: Math.round(seoScore), fullMark: 100 }
+                    ];
+                  })()}>
                     <PolarGrid stroke="#e5e7eb" />
                     <PolarAngleAxis dataKey="metric" tick={{ fontSize: 12 }} />
                     <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 10 }} />
-                    <Radar name="Q1 2025" dataKey="value" stroke="#005C84" fill="#005C84" fillOpacity={0.6} />
+                    <Radar name={`${selectedPeriod} ${selectedYear}`} dataKey="value" stroke="#005C84" fill="#005C84" fillOpacity={0.6} />
                     <Tooltip />
                   </RadarChart>
                 </ResponsiveContainer>
@@ -1238,13 +1604,62 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {[
-                        { metric: 'Website Sessions', q1_24: 13245, q2_24: 12890, q3_24: 14567, q4_24: 14053, q1_25: 15739, qoq: 12.0, yoy: 18.8 },
-                        { metric: 'Social Impressions', q1_24: 28450, q2_24: 26780, q3_24: 31200, q4_24: 29890, q1_25: 36307, qoq: 21.5, yoy: 27.6 },
-                        { metric: 'Emails Sent', q1_24: 1450, q2_24: 1380, q3_24: 1620, q4_24: 1590, q1_25: 1828, qoq: 15.0, yoy: 26.1 },
-                        { metric: 'Leads Generated', q1_24: 92, q2_24: 78, q3_24: 105, q4_24: 89, q1_25: 146, qoq: 64.0, yoy: 58.7 },
-                        { metric: 'Conversion Rate', q1_24: 0.69, q2_24: 0.61, q3_24: 0.72, q4_24: 0.63, q1_25: 0.93, qoq: 47.6, yoy: 34.8 }
-                      ].map((row, index) => (
+                      {(() => {
+                        const metrics = ['Website Sessions', 'Social Impressions', 'Emails Sent', 'Leads Generated', 'Conversion Rate'];
+                        
+                        return metrics.map(metric => {
+                          const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
+                          const years = [2024, 2025];
+                          const values: Record<string, number> = {};
+                          
+                          quarters.forEach(q => {
+                            years.forEach(y => {
+                              if (y === 2025 && (q === 'Q2' || q === 'Q3' || q === 'Q4')) return; // Skip future quarters
+                              
+                              const key = `${q.toLowerCase()}_${y.toString().slice(2)}`;
+                              
+                              if (metric === 'Website Sessions') {
+                                const websiteData = data.websiteData.filter(d => d.year === y && d.quarter === q);
+                                values[key] = websiteData.reduce((sum, d) => sum + (d.sessions || 0), 0);
+                              } else if (metric === 'Social Impressions') {
+                                const socialData = data.socialData.filter(d => d.year === y && d.quarter === q);
+                                values[key] = socialData.reduce((sum, d) => sum + (d.impressions || 0), 0);
+                              } else if (metric === 'Emails Sent') {
+                                const emailData = data.emailData.filter(d => d.year === y && d.quarter === q);
+                                values[key] = emailData.reduce((sum, d) => sum + (d.emailsSent || 0), 0);
+                              } else if (metric === 'Leads Generated') {
+                                const leadsData = data.leadsData.filter(d => d.year === y && d.quarter === q);
+                                values[key] = leadsData.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0);
+                              } else if (metric === 'Conversion Rate') {
+                                const websiteData = data.websiteData.filter(d => d.year === y && d.quarter === q);
+                                const leadsData = data.leadsData.filter(d => d.year === y && d.quarter === q);
+                                const sessions = websiteData.reduce((sum, d) => sum + (d.sessions || 0), 0);
+                                const leads = leadsData.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0);
+                                values[key] = sessions > 0 ? ((leads / sessions) * 100) : 0;
+                              }
+                            });
+                          });
+                          
+                          // Calculate QoQ and YoY
+                          const q1_25 = values.q1_25 || 0;
+                          const q4_24 = values.q4_24 || 0;
+                          const q1_24 = values.q1_24 || 0;
+                          
+                          const qoq = q4_24 > 0 ? ((q1_25 - q4_24) / q4_24 * 100) : 0;
+                          const yoy = q1_24 > 0 ? ((q1_25 - q1_24) / q1_24 * 100) : 0;
+                          
+                          return {
+                            metric,
+                            q1_24: values.q1_24 || 0,
+                            q2_24: values.q2_24 || 0,
+                            q3_24: values.q3_24 || 0,
+                            q4_24: values.q4_24 || 0,
+                            q1_25: values.q1_25 || 0,
+                            qoq: qoq.toFixed(1),
+                            yoy: yoy.toFixed(1)
+                          };
+                        });
+                      })().map((row, index) => (
                         <tr key={index} className="hover:bg-gray-50">
                           <td className="px-6 py-4 text-sm font-medium text-gray-900">{row.metric}</td>
                           <td className="px-6 py-4 text-sm text-gray-600">
