@@ -735,13 +735,107 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {[
-                        { source: 'Direct Traffic', sessions: 7123, percent: 45.2, trend: 12.3, status: 'GROWING' },
-                        { source: 'Search Engines', sessions: 4892, percent: 31.1, trend: 8.7, status: 'STABLE' },
-                        { source: 'Social Media', sessions: 2156, percent: 13.7, trend: 24.5, status: 'EXCELLENT' },
-                        { source: 'External Referrers', sessions: 1089, percent: 6.9, trend: -3.2, status: 'WARNING' },
-                        { source: 'Internal Referrers', sessions: 479, percent: 3.0, trend: 5.1, status: 'GOOD' }
-                      ].map((row, index) => (
+                      {(() => {
+                        const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
+                        
+                        // Get website sessions for the current period
+                        const currentWebsiteData = data.websiteData.filter(d => 
+                          d.year === selectedYear && 
+                          (currentQuarter ? d.quarter === currentQuarter : true)
+                        );
+                        const totalWebsiteSessions = currentWebsiteData.reduce((sum, d) => sum + (d.sessions || 0), 0);
+                        
+                        // Get current period traffic source percentages
+                        const currentTraffic = data.trafficSources.filter(d => 
+                          d.year === selectedYear && 
+                          (currentQuarter ? d.quarter === currentQuarter : true)
+                        );
+                        
+                        // Get previous period for comparison
+                        const previousQuarter = currentQuarter === 'Q1' ? 'Q4' : 
+                                               currentQuarter === 'Q2' ? 'Q1' :
+                                               currentQuarter === 'Q3' ? 'Q2' : 
+                                               currentQuarter ? 'Q3' : null;
+                        const previousYear = currentQuarter === 'Q1' ? selectedYear - 1 : selectedYear;
+                        
+                        const previousWebsiteData = data.websiteData.filter(d => 
+                          d.year === (currentQuarter ? previousYear : selectedYear - 1) && 
+                          (currentQuarter && previousQuarter ? d.quarter === previousQuarter : true)
+                        );
+                        const totalPrevWebsiteSessions = previousWebsiteData.reduce((sum, d) => sum + (d.sessions || 0), 0);
+                        
+                        const previousTraffic = data.trafficSources.filter(d => 
+                          d.year === (currentQuarter ? previousYear : selectedYear - 1) && 
+                          (currentQuarter && previousQuarter ? d.quarter === previousQuarter : true)
+                        );
+                        
+                        // Calculate average percentages for current period
+                        const avgPercentages = {
+                          'Direct Traffic': currentTraffic.length > 0 ? 
+                            currentTraffic.reduce((sum, d) => sum + (d.directTraffic || 0), 0) / currentTraffic.length : 0,
+                          'Search Engines': currentTraffic.length > 0 ?
+                            currentTraffic.reduce((sum, d) => sum + (d.searchEngines || 0), 0) / currentTraffic.length : 0,
+                          'Social Media': currentTraffic.length > 0 ?
+                            currentTraffic.reduce((sum, d) => sum + (d.socialMedia || 0), 0) / currentTraffic.length : 0,
+                          'External Referrers': currentTraffic.length > 0 ?
+                            currentTraffic.reduce((sum, d) => sum + (d.externalReferrers || 0), 0) / currentTraffic.length : 0,
+                          'Internal Referrers': currentTraffic.length > 0 ?
+                            currentTraffic.reduce((sum, d) => sum + (d.internalReferrers || 0), 0) / currentTraffic.length : 0
+                        };
+                        
+                        // Calculate average percentages for previous period
+                        const prevAvgPercentages = {
+                          'Direct Traffic': previousTraffic.length > 0 ? 
+                            previousTraffic.reduce((sum, d) => sum + (d.directTraffic || 0), 0) / previousTraffic.length : 0,
+                          'Search Engines': previousTraffic.length > 0 ?
+                            previousTraffic.reduce((sum, d) => sum + (d.searchEngines || 0), 0) / previousTraffic.length : 0,
+                          'Social Media': previousTraffic.length > 0 ?
+                            previousTraffic.reduce((sum, d) => sum + (d.socialMedia || 0), 0) / previousTraffic.length : 0,
+                          'External Referrers': previousTraffic.length > 0 ?
+                            previousTraffic.reduce((sum, d) => sum + (d.externalReferrers || 0), 0) / previousTraffic.length : 0,
+                          'Internal Referrers': previousTraffic.length > 0 ?
+                            previousTraffic.reduce((sum, d) => sum + (d.internalReferrers || 0), 0) / previousTraffic.length : 0
+                        };
+                        
+                        // Convert percentages to actual session counts and calculate trends
+                        const sources = Object.entries(avgPercentages).map(([source, percentage]) => {
+                          const sessions = Math.round((percentage / 100) * totalWebsiteSessions);
+                          const prevPercentage = prevAvgPercentages[source as keyof typeof prevAvgPercentages] || 0;
+                          const prevSessions = Math.round((prevPercentage / 100) * totalPrevWebsiteSessions);
+                          const trend = prevSessions > 0 ? ((sessions - prevSessions) / prevSessions * 100) : 0;
+                          
+                          // Determine status based on trend
+                          let status = 'STABLE';
+                          if (trend > 20) status = 'EXCELLENT';
+                          else if (trend > 10) status = 'GROWING';
+                          else if (trend > 0) status = 'GOOD';
+                          else if (trend < -5) status = 'WARNING';
+                          
+                          return {
+                            source,
+                            sessions,
+                            percent: percentage.toFixed(1),
+                            trend: trend.toFixed(1),
+                            status
+                          };
+                        });
+                        
+                        // Sort by sessions descending
+                        sources.sort((a, b) => b.sessions - a.sessions);
+                        
+                        // If no data, show placeholder
+                        if (sources.length === 0 || totalWebsiteSessions === 0) {
+                          return [{
+                            source: 'No data available',
+                            sessions: 0,
+                            percent: '0.0',
+                            trend: '0.0',
+                            status: 'N/A'
+                          }];
+                        }
+                        
+                        return sources;
+                      })().map((row, index) => (
                         <tr key={index} className="hover:bg-gray-50">
                           <td className="px-6 py-4 text-sm font-medium text-gray-900">{row.source}</td>
                           <td className="px-6 py-4 text-sm text-gray-600">{row.sessions.toLocaleString()}</td>
