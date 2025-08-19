@@ -61,7 +61,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>('Q1');
   const [selectedYear, setSelectedYear] = useState(2025);
   const [compareEnabled, setCompareEnabled] = useState(false);
-  const [compareType, setCompareType] = useState<'prev_quarter' | 'prev_year' | 'custom'>('prev_quarter');
+  const [compareType, setCompareType] = useState<'prev_quarter' | 'prev_year'>('prev_quarter');
   const [chartView, setChartView] = useState<ChartView>('quarterly');
   const [quarterlyChartView, setQuarterlyChartView] = useState<ChartView>('all');
   const [yoyChartView, setYoyChartView] = useState<ChartView>('quarterly');
@@ -134,13 +134,35 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
       (currentQuarter ? d.quarter === currentQuarter : true)
     );
 
-    const previousQuarter = currentQuarter === 'Q1' ? 'Q4' : 
-                           currentQuarter === 'Q2' ? 'Q1' :
-                           currentQuarter === 'Q3' ? 'Q2' : 'Q3';
-    const previousYear = currentQuarter === 'Q1' ? selectedYear - 1 : selectedYear;
+    // Determine comparison period based on compareType
+    let previousQuarter, previousYear, previousPeriodLabel;
+    
+    if (compareType === 'prev_year') {
+      // Previous Year Same Quarter
+      previousQuarter = currentQuarter;
+      previousYear = selectedYear - 1;
+      previousPeriodLabel = currentQuarter 
+        ? `${currentQuarter} ${previousYear}` 
+        : `${previousYear}`;
+    } else {
+      // Previous Quarter (default)
+      if (currentQuarter) {
+        previousQuarter = currentQuarter === 'Q1' ? 'Q4' : 
+                         currentQuarter === 'Q2' ? 'Q1' :
+                         currentQuarter === 'Q3' ? 'Q2' : 'Q3';
+        previousYear = currentQuarter === 'Q1' ? selectedYear - 1 : selectedYear;
+        previousPeriodLabel = `${previousQuarter} ${previousYear}`;
+      } else {
+        // For full year comparison
+        previousQuarter = null;
+        previousYear = selectedYear - 1;
+        previousPeriodLabel = `${previousYear}`;
+      }
+    }
     
     const previousData = data.websiteData.filter(d => 
-      d.year === previousYear && d.quarter === previousQuarter
+      d.year === previousYear && 
+      (previousQuarter ? d.quarter === previousQuarter : true)
     );
 
     const currentSocial = data.socialData.filter(d => 
@@ -148,14 +170,29 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
       (currentQuarter ? d.quarter === currentQuarter : true)
     );
 
+    const previousSocial = data.socialData.filter(d => 
+      d.year === previousYear && 
+      (previousQuarter ? d.quarter === previousQuarter : true)
+    );
+
     const currentEmail = data.emailData.filter(d => 
       d.year === selectedYear && 
       (currentQuarter ? d.quarter === currentQuarter : true)
     );
 
+    const previousEmail = data.emailData.filter(d => 
+      d.year === previousYear && 
+      (previousQuarter ? d.quarter === previousQuarter : true)
+    );
+
     const currentLeads = data.leadsData.filter(d => 
       d.year === selectedYear && 
       (currentQuarter ? d.quarter === currentQuarter : true)
+    );
+
+    const previousLeads = data.leadsData.filter(d => 
+      d.year === previousYear && 
+      (previousQuarter ? d.quarter === previousQuarter : true)
     );
 
     // Calculate aggregated metrics
@@ -176,14 +213,20 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
     // Previous period metrics for comparison
     const prevSessions = previousData.reduce((sum, d) => sum + (d.sessions || 0), 0);
     const prevVisitors = previousData.reduce((sum, d) => sum + (d.uniqueVisitors || 0), 0);
+    
+    const prevImpressions = previousSocial.reduce((sum, d) => sum + (d.impressions || 0), 0);
+    const prevEngagements = previousSocial.reduce((sum, d) => 
+      sum + (d.reactions || 0) + (d.comments || 0) + (d.shares || 0), 0);
+    const prevSocialEngagementRate = prevImpressions > 0 ? (prevEngagements / prevImpressions) * 100 : 0;
+    
+    const prevEmailsSent = previousEmail.reduce((sum, d) => sum + (d.emailsSent || 0), 0);
+    const prevUniqueOpens = previousEmail.reduce((sum, d) => sum + (d.uniqueOpens || 0), 0);
+    const prevEmailOpenRate = prevEmailsSent > 0 ? (prevUniqueOpens / prevEmailsSent) * 100 : 0;
+    
+    const prevNewLeads = previousLeads.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0);
 
     const digitalReach = totalVisitors + totalImpressions;
-    const prevReach = prevVisitors + 45000; // Placeholder for previous social impressions
-    
-    // Generate previous period label
-    const previousPeriodLabel = currentQuarter 
-      ? `${previousQuarter} ${previousYear}` 
-      : `${selectedYear - 1}`;
+    const prevReach = prevVisitors + prevImpressions;
 
     return {
       previousPeriodLabel,
@@ -202,20 +245,26 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
       socialEngagement: {
         value: socialEngagementRate,
         formatted: `${socialEngagementRate.toFixed(2)}%`,
-        trend: calculateTrend(socialEngagementRate, 4.6),
-        previousValue: 4.6
+        trend: {
+          value: Math.abs(socialEngagementRate - prevSocialEngagementRate),
+          direction: socialEngagementRate >= prevSocialEngagementRate ? 'up' : 'down'
+        },
+        previousValue: prevSocialEngagementRate
       },
       emailOpenRate: {
         value: emailOpenRate,
         formatted: `${emailOpenRate.toFixed(1)}%`,
-        trend: calculateTrend(emailOpenRate, 62.1),
-        previousValue: 62.1
+        trend: {
+          value: Math.abs(emailOpenRate - prevEmailOpenRate),
+          direction: emailOpenRate >= prevEmailOpenRate ? 'up' : 'down'
+        },
+        previousValue: prevEmailOpenRate
       },
       newLeads: {
         value: totalNewLeads,
         formatted: formatNumber(totalNewLeads),
-        trend: calculateTrend(totalNewLeads, 89),
-        previousValue: 89
+        trend: calculateTrend(totalNewLeads, prevNewLeads),
+        previousValue: prevNewLeads
       },
       marketingROI: {
         value: 3.2,
@@ -224,7 +273,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
         previousValue: 2.8
       }
     };
-  }, [data, selectedPeriod, selectedYear]);
+  }, [data, selectedPeriod, selectedYear, compareType]);
 
   const getDateRange = () => {
     const quarterRanges = {
@@ -438,12 +487,11 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
             {compareEnabled && (
               <select
                 value={compareType}
-                onChange={(e) => setCompareType(e.target.value as any)}
+                onChange={(e) => setCompareType(e.target.value as 'prev_quarter' | 'prev_year')}
                 className="px-3 py-1.5 rounded-md bg-white text-[#005C84] text-sm"
               >
                 <option value="prev_quarter">Previous Quarter</option>
                 <option value="prev_year">Previous Year Same Quarter</option>
-                <option value="custom">Custom Period</option>
               </select>
             )}
 
@@ -566,7 +614,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   </div>
                   {compareEnabled && (
                     <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
-                      {kpis.previousPeriodLabel}: {kpis.socialEngagement.previousValue}%
+                      {kpis.previousPeriodLabel}: {kpis.socialEngagement.previousValue.toFixed(2)}%
                     </div>
                   )}
                 </div>
@@ -591,7 +639,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   </div>
                   {compareEnabled && (
                     <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
-                      {kpis.previousPeriodLabel}: {kpis.emailOpenRate.previousValue}%
+                      {kpis.previousPeriodLabel}: {kpis.emailOpenRate.previousValue.toFixed(1)}%
                     </div>
                   )}
                 </div>
@@ -770,6 +818,38 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                     (currentQuarter ? d.quarter === currentQuarter : true)
                   );
                   
+                  // Determine comparison period based on compareType
+                  let previousQuarter, previousYear, previousPeriodLabel;
+                  
+                  if (compareType === 'prev_year') {
+                    // Previous Year Same Quarter
+                    previousQuarter = currentQuarter;
+                    previousYear = selectedYear - 1;
+                    previousPeriodLabel = currentQuarter 
+                      ? `${currentQuarter} ${previousYear}` 
+                      : `${previousYear}`;
+                  } else {
+                    // Previous Quarter (default)
+                    if (currentQuarter) {
+                      previousQuarter = currentQuarter === 'Q1' ? 'Q4' : 
+                                       currentQuarter === 'Q2' ? 'Q1' :
+                                       currentQuarter === 'Q3' ? 'Q2' : 'Q3';
+                      previousYear = currentQuarter === 'Q1' ? selectedYear - 1 : selectedYear;
+                      previousPeriodLabel = `${previousQuarter} ${previousYear}`;
+                    } else {
+                      // For full year comparison
+                      previousQuarter = null;
+                      previousYear = selectedYear - 1;
+                      previousPeriodLabel = `${previousYear}`;
+                    }
+                  }
+                  
+                  const previousData = data.websiteData.filter(d => 
+                    d.year === previousYear && 
+                    (previousQuarter ? d.quarter === previousQuarter : true)
+                  );
+                  
+                  // Current period metrics
                   const totalSessions = currentData.reduce((sum, d) => sum + (d.sessions || 0), 0);
                   const totalPageviews = currentData.reduce((sum, d) => sum + (d.pageviews || 0), 0);
                   const totalVisitors = currentData.reduce((sum, d) => sum + (d.uniqueVisitors || 0), 0);
@@ -779,11 +859,58 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   const newVisitorRate = totalVisitors > 0 ? 
                     ((currentData.reduce((sum, d) => sum + (d.uniqueVisitors || 0) - (d.returningVisitors || 0), 0) / totalVisitors) * 100).toFixed(1) : '0';
                   
+                  // Previous period metrics
+                  const prevSessions = previousData.reduce((sum, d) => sum + (d.sessions || 0), 0);
+                  const prevPageviews = previousData.reduce((sum, d) => sum + (d.pageviews || 0), 0);
+                  const prevVisitors = previousData.reduce((sum, d) => sum + (d.uniqueVisitors || 0), 0);
+                  const prevBounceRate = previousData.length > 0 ? 
+                    previousData.reduce((sum, d) => sum + (d.bounceRate || 0), 0) / previousData.length : 0;
+                  
+                  // Calculate trends
+                  const sessionsTrend = prevSessions > 0 ? ((totalSessions - prevSessions) / prevSessions * 100) : 0;
+                  const pageviewsTrend = prevPageviews > 0 ? ((totalPageviews - prevPageviews) / prevPageviews * 100) : 0;
+                  const visitorsTrend = prevVisitors > 0 ? ((totalVisitors - prevVisitors) / prevVisitors * 100) : 0;
+                  const bounceRateDiff = avgBounceRate - prevBounceRate; // Difference in percentage points
+                  
                   return [
-                    { label: 'Total Sessions', value: formatNumber(totalSessions), subtext: `${selectedPeriod} ${selectedYear}`, icon: Globe },
-                    { label: 'Pageviews', value: formatNumber(totalPageviews), subtext: `${pagesPerSession} pages/session`, icon: Eye },
-                    { label: 'Unique Visitors', value: formatNumber(totalVisitors), subtext: `${newVisitorRate}% new visitors`, icon: Users },
-                    { label: 'Bounce Rate', value: `${avgBounceRate.toFixed(1)}%`, subtext: avgBounceRate > 65 ? '↓ Needs improvement' : 'Good', icon: Activity, negative: avgBounceRate > 65 }
+                    { 
+                      label: 'Total Sessions', 
+                      value: formatNumber(totalSessions), 
+                      subtext: `${selectedPeriod} ${selectedYear}`, 
+                      icon: Globe,
+                      trend: sessionsTrend,
+                      previousValue: prevSessions,
+                      previousPeriodLabel
+                    },
+                    { 
+                      label: 'Pageviews', 
+                      value: formatNumber(totalPageviews), 
+                      subtext: `${pagesPerSession} pages/session`, 
+                      icon: Eye,
+                      trend: pageviewsTrend,
+                      previousValue: prevPageviews,
+                      previousPeriodLabel
+                    },
+                    { 
+                      label: 'Unique Visitors', 
+                      value: formatNumber(totalVisitors), 
+                      subtext: `${newVisitorRate}% new visitors`, 
+                      icon: Users,
+                      trend: visitorsTrend,
+                      previousValue: prevVisitors,
+                      previousPeriodLabel
+                    },
+                    { 
+                      label: 'Bounce Rate', 
+                      value: `${avgBounceRate.toFixed(1)}%`, 
+                      subtext: avgBounceRate > 65 ? '↓ Needs improvement' : 'Good', 
+                      icon: Activity, 
+                      negative: avgBounceRate > 65,
+                      trend: bounceRateDiff,
+                      isRate: true,
+                      previousValue: prevBounceRate,
+                      previousPeriodLabel
+                    }
                   ].map((metric, index) => (
                   <div key={index} className="bg-white p-6 rounded-xl border border-gray-200">
                     <div className="flex items-start justify-between mb-4">
@@ -812,10 +939,37 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                           metric.label === 'Bounce Rate' ? 'Below 40% is excellent, 40-55% is average, above 70% needs improvement' :
                           undefined
                         }
+                        icon="info"
+                        position="bottom"
                       />
                     </div>
                     <div className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</div>
-                    <div className={`text-sm ${metric.negative ? 'text-orange-600' : 'text-gray-500'}`}>{metric.subtext}</div>
+                    <div className={`text-sm ${metric.negative ? 'text-orange-600' : 'text-gray-500'} mb-2`}>{metric.subtext}</div>
+                    
+                    {/* Trend indicator */}
+                    <div className={`flex items-center gap-1 text-sm ${
+                      metric.isRate 
+                        ? (metric.trend < 0 ? 'text-green-600' : 'text-red-600')  // For bounce rate, lower is better
+                        : (metric.trend >= 0 ? 'text-green-600' : 'text-red-600')
+                    }`}>
+                      {metric.isRate ? (
+                        metric.trend < 0 ? <TrendingDown className="h-4 w-4" /> : <TrendingUp className="h-4 w-4" />
+                      ) : (
+                        metric.trend >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />
+                      )}
+                      {Math.abs(metric.trend).toFixed(1)}{metric.isRate ? 'pp' : '%'} vs {metric.previousPeriodLabel}
+                    </div>
+                    
+                    {/* Comparison value when enabled */}
+                    {compareEnabled && (
+                      <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
+                        {metric.previousPeriodLabel}: {
+                          metric.isRate 
+                            ? `${metric.previousValue.toFixed(1)}%`
+                            : formatNumber(metric.previousValue)
+                        }
+                      </div>
+                    )}
                   </div>
                 ))
                 })()}
@@ -1022,13 +1176,35 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                     (currentQuarter ? d.quarter === currentQuarter : true)
                   );
                   
-                  // Previous period for comparison
-                  const previousQuarter = currentQuarter === 'Q1' ? 'Q4' : 
-                                         currentQuarter === 'Q2' ? 'Q1' :
-                                         currentQuarter === 'Q3' ? 'Q2' : 'Q3';
-                  const previousYear = currentQuarter === 'Q1' ? selectedYear - 1 : selectedYear;
+                  // Determine comparison period based on compareType
+                  let previousQuarter, previousYear, previousPeriodLabel;
+                  
+                  if (compareType === 'prev_year') {
+                    // Previous Year Same Quarter
+                    previousQuarter = currentQuarter;
+                    previousYear = selectedYear - 1;
+                    previousPeriodLabel = currentQuarter 
+                      ? `${currentQuarter} ${previousYear}` 
+                      : `${previousYear}`;
+                  } else {
+                    // Previous Quarter (default)
+                    if (currentQuarter) {
+                      previousQuarter = currentQuarter === 'Q1' ? 'Q4' : 
+                                       currentQuarter === 'Q2' ? 'Q1' :
+                                       currentQuarter === 'Q3' ? 'Q2' : 'Q3';
+                      previousYear = currentQuarter === 'Q1' ? selectedYear - 1 : selectedYear;
+                      previousPeriodLabel = `${previousQuarter} ${previousYear}`;
+                    } else {
+                      // For full year comparison
+                      previousQuarter = null;
+                      previousYear = selectedYear - 1;
+                      previousPeriodLabel = `${previousYear}`;
+                    }
+                  }
+                  
                   const previousSearch = data.searchData.filter(d => 
-                    d.year === previousYear && d.quarter === previousQuarter
+                    d.year === previousYear && 
+                    (previousQuarter ? d.quarter === previousQuarter : true)
                   );
                   
                   const totalImpressions = currentSearch.reduce((sum, d) => sum + (d.impressions || 0), 0);
@@ -1052,28 +1228,38 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       value: formatNumber(totalImpressions), 
                       trend: prevImpressions > 0 ? ((totalImpressions - prevImpressions) / prevImpressions * 100).toFixed(1) : 0, 
                       icon: Eye,
-                      positive: totalImpressions > prevImpressions
+                      positive: totalImpressions > prevImpressions,
+                      previousValue: prevImpressions,
+                      previousPeriodLabel
                     },
                     { 
                       label: 'Search Clicks', 
                       value: formatNumber(totalClicks), 
                       trend: prevClicks > 0 ? ((totalClicks - prevClicks) / prevClicks * 100).toFixed(1) : 0, 
                       icon: MousePointer,
-                      positive: totalClicks > prevClicks
+                      positive: totalClicks > prevClicks,
+                      previousValue: prevClicks,
+                      previousPeriodLabel
                     },
                     { 
                       label: 'Click-Through Rate', 
                       value: `${avgCTR.toFixed(2)}%`, 
                       trend: (avgCTR - prevCTR).toFixed(2), 
                       icon: Target,
-                      positive: avgCTR > prevCTR
+                      positive: avgCTR > prevCTR,
+                      isRate: true,
+                      previousValue: prevCTR,
+                      previousPeriodLabel
                     },
                     { 
                       label: 'Avg. Position', 
                       value: avgPosition.toFixed(1), 
                       trend: (prevPosition - avgPosition).toFixed(1), // Lower is better for position
                       icon: BarChart3,
-                      positive: avgPosition < prevPosition // Lower position is better
+                      positive: avgPosition < prevPosition, // Lower position is better
+                      isPosition: true,
+                      previousValue: prevPosition,
+                      previousPeriodLabel
                     }
                   ].map((metric, index) => (
                   <div key={index} className="bg-white p-6 rounded-xl border border-gray-200">
@@ -1105,13 +1291,28 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                           metric.label === 'Avg. Position' ? 'Position 1.0 is the top result, 11.0 is top of page 2' :
                           undefined
                         }
+                        icon="info"
+                        position="bottom"
                       />
                     </div>
                     <div className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</div>
                     <div className={`flex items-center gap-1 text-sm ${metric.positive ? 'text-green-600' : 'text-red-600'}`}>
                       {metric.positive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                      {Math.abs(Number(metric.trend))}{metric.label.includes('Rate') ? 'pp' : metric.label.includes('Position') ? ' pos' : '%'} vs Previous
+                      {Math.abs(Number(metric.trend))}{metric.isRate ? 'pp' : metric.isPosition ? ' pos' : '%'} vs {metric.previousPeriodLabel}
                     </div>
+                    
+                    {/* Comparison value when enabled */}
+                    {compareEnabled && (
+                      <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
+                        {metric.previousPeriodLabel}: {
+                          metric.isRate 
+                            ? `${metric.previousValue.toFixed(2)}%`
+                            : metric.isPosition
+                            ? metric.previousValue.toFixed(1)
+                            : formatNumber(metric.previousValue)
+                        }
+                      </div>
+                    )}
                   </div>
                 ))
                 })()}
@@ -1234,13 +1435,35 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                     (currentQuarter ? d.quarter === currentQuarter : true)
                   );
                   
-                  // Previous period for comparison
-                  const previousQuarter = currentQuarter === 'Q1' ? 'Q4' : 
-                                         currentQuarter === 'Q2' ? 'Q1' :
-                                         currentQuarter === 'Q3' ? 'Q2' : 'Q3';
-                  const previousYear = currentQuarter === 'Q1' ? selectedYear - 1 : selectedYear;
+                  // Determine comparison period based on compareType
+                  let previousQuarter, previousYear, previousPeriodLabel;
+                  
+                  if (compareType === 'prev_year') {
+                    // Previous Year Same Quarter
+                    previousQuarter = currentQuarter;
+                    previousYear = selectedYear - 1;
+                    previousPeriodLabel = currentQuarter 
+                      ? `${currentQuarter} ${previousYear}` 
+                      : `${previousYear}`;
+                  } else {
+                    // Previous Quarter (default)
+                    if (currentQuarter) {
+                      previousQuarter = currentQuarter === 'Q1' ? 'Q4' : 
+                                       currentQuarter === 'Q2' ? 'Q1' :
+                                       currentQuarter === 'Q3' ? 'Q2' : 'Q3';
+                      previousYear = currentQuarter === 'Q1' ? selectedYear - 1 : selectedYear;
+                      previousPeriodLabel = `${previousQuarter} ${previousYear}`;
+                    } else {
+                      // For full year comparison
+                      previousQuarter = null;
+                      previousYear = selectedYear - 1;
+                      previousPeriodLabel = `${previousYear}`;
+                    }
+                  }
+                  
                   const previousSocial = data.socialData.filter(d => 
-                    d.year === previousYear && d.quarter === previousQuarter
+                    d.year === previousYear && 
+                    (previousQuarter ? d.quarter === previousQuarter : true)
                   );
                   
                   const totalImpressions = currentSocial.reduce((sum, d) => sum + (d.impressions || 0), 0);
@@ -1254,34 +1477,51 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   
                   // Previous period metrics
                   const prevImpressions = previousSocial.reduce((sum, d) => sum + (d.impressions || 0), 0);
+                  const prevReactions = previousSocial.reduce((sum, d) => sum + (d.reactions || 0), 0);
                   const prevEngagements = previousSocial.reduce((sum, d) => 
                     sum + (d.reactions || 0) + (d.comments || 0) + (d.shares || 0), 0);
+                  const prevClicks = previousSocial.reduce((sum, d) => sum + (d.clicks || 0), 0);
                   const prevEngRate = prevImpressions > 0 ? (prevEngagements / prevImpressions) * 100 : 0;
+                  const prevCtr = prevImpressions > 0 ? (prevClicks / prevImpressions) * 100 : 0;
                   
                   return [
                     { 
                       label: 'Total Impressions', 
                       value: formatNumber(totalImpressions), 
                       trend: prevImpressions > 0 ? ((totalImpressions - prevImpressions) / prevImpressions * 100).toFixed(1) : 0, 
-                      icon: Eye 
+                      icon: Eye,
+                      positive: totalImpressions > prevImpressions,
+                      previousValue: prevImpressions,
+                      previousPeriodLabel
                     },
                     { 
                       label: 'Engagement Rate', 
                       value: `${engagementRate.toFixed(2)}%`, 
                       trend: (engagementRate - prevEngRate).toFixed(2), 
-                      icon: Activity 
+                      icon: Activity,
+                      positive: engagementRate > prevEngRate,
+                      isRate: true,
+                      previousValue: prevEngRate,
+                      previousPeriodLabel
                     },
                     { 
                       label: 'Total Reactions', 
                       value: formatNumber(totalReactions), 
-                      trend: 0, 
-                      icon: Share2 
+                      trend: prevReactions > 0 ? ((totalReactions - prevReactions) / prevReactions * 100).toFixed(1) : 0, 
+                      icon: Share2,
+                      positive: totalReactions > prevReactions,
+                      previousValue: prevReactions,
+                      previousPeriodLabel
                     },
                     { 
                       label: 'Click-Through Rate', 
                       value: `${ctr.toFixed(2)}%`, 
-                      trend: 0, 
-                      icon: MousePointer 
+                      trend: (ctr - prevCtr).toFixed(2), 
+                      icon: MousePointer,
+                      positive: ctr > prevCtr,
+                      isRate: true,
+                      previousValue: prevCtr,
+                      previousPeriodLabel
                     }
                   ].map((metric, index) => (
                   <div key={index} className="bg-white p-6 rounded-xl border border-gray-200">
@@ -1320,10 +1560,21 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       />
                     </div>
                     <div className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</div>
-                    <div className="flex items-center gap-1 text-sm text-green-600">
-                      <TrendingUp className="h-4 w-4" />
-                      +{metric.trend}{typeof metric.trend === 'number' && metric.trend < 10 ? 'pp' : '%'} vs Previous
+                    <div className={`flex items-center gap-1 text-sm ${metric.positive ? 'text-green-600' : 'text-red-600'}`}>
+                      {metric.positive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                      {Math.abs(Number(metric.trend))}{metric.isRate ? 'pp' : '%'} vs {metric.previousPeriodLabel}
                     </div>
+                    
+                    {/* Comparison value when enabled */}
+                    {compareEnabled && (
+                      <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
+                        {metric.previousPeriodLabel}: {
+                          metric.isRate 
+                            ? `${metric.previousValue.toFixed(2)}%`
+                            : formatNumber(metric.previousValue)
+                        }
+                      </div>
+                    )}
                   </div>
                 ))
                 })()}
@@ -1454,6 +1705,37 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                     (currentQuarter ? d.quarter === currentQuarter : true)
                   );
                   
+                  // Determine comparison period based on compareType
+                  let previousQuarter, previousYear, previousPeriodLabel;
+                  
+                  if (compareType === 'prev_year') {
+                    // Previous Year Same Quarter
+                    previousQuarter = currentQuarter;
+                    previousYear = selectedYear - 1;
+                    previousPeriodLabel = currentQuarter 
+                      ? `${currentQuarter} ${previousYear}` 
+                      : `${previousYear}`;
+                  } else {
+                    // Previous Quarter (default)
+                    if (currentQuarter) {
+                      previousQuarter = currentQuarter === 'Q1' ? 'Q4' : 
+                                       currentQuarter === 'Q2' ? 'Q1' :
+                                       currentQuarter === 'Q3' ? 'Q2' : 'Q3';
+                      previousYear = currentQuarter === 'Q1' ? selectedYear - 1 : selectedYear;
+                      previousPeriodLabel = `${previousQuarter} ${previousYear}`;
+                    } else {
+                      // For full year comparison
+                      previousQuarter = null;
+                      previousYear = selectedYear - 1;
+                      previousPeriodLabel = `${previousYear}`;
+                    }
+                  }
+                  
+                  const previousEmail = data.emailData.filter(d => 
+                    d.year === previousYear && 
+                    (previousQuarter ? d.quarter === previousQuarter : true)
+                  );
+                  
                   const totalEmailsSent = currentEmail.reduce((sum, d) => sum + (d.emailsSent || 0), 0);
                   const totalUniqueOpens = currentEmail.reduce((sum, d) => sum + (d.uniqueOpens || 0), 0);
                   const totalUniqueClicks = currentEmail.reduce((sum, d) => sum + (d.uniqueClicks || 0), 0);
@@ -1462,11 +1744,56 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   const clickRate = totalEmailsSent > 0 ? (totalUniqueClicks / totalEmailsSent) * 100 : 0;
                   const conversionRate = totalUniqueClicks > 0 ? (totalUniqueClicks * 0.25) / totalEmailsSent * 100 : 0; // Estimate
                   
+                  // Previous period metrics
+                  const prevEmailsSent = previousEmail.reduce((sum, d) => sum + (d.emailsSent || 0), 0);
+                  const prevUniqueOpens = previousEmail.reduce((sum, d) => sum + (d.uniqueOpens || 0), 0);
+                  const prevUniqueClicks = previousEmail.reduce((sum, d) => sum + (d.uniqueClicks || 0), 0);
+                  
+                  const prevOpenRate = prevEmailsSent > 0 ? (prevUniqueOpens / prevEmailsSent) * 100 : 0;
+                  const prevClickRate = prevEmailsSent > 0 ? (prevUniqueClicks / prevEmailsSent) * 100 : 0;
+                  const prevConversionRate = prevUniqueClicks > 0 ? (prevUniqueClicks * 0.25) / prevEmailsSent * 100 : 0;
+                  
                   return [
-                    { label: 'Emails Sent', value: formatNumber(totalEmailsSent), trend: 0, icon: Mail },
-                    { label: 'Open Rate', value: `${openRate.toFixed(1)}%`, trend: 0, icon: Eye },
-                    { label: 'Click Rate', value: `${clickRate.toFixed(1)}%`, trend: 0, icon: MousePointer },
-                    { label: 'Conversion Rate', value: `${conversionRate.toFixed(1)}%`, trend: 0, icon: Target }
+                    { 
+                      label: 'Emails Sent', 
+                      value: formatNumber(totalEmailsSent), 
+                      trend: prevEmailsSent > 0 ? ((totalEmailsSent - prevEmailsSent) / prevEmailsSent * 100).toFixed(1) : 0, 
+                      icon: Mail,
+                      positive: totalEmailsSent > prevEmailsSent,
+                      previousValue: prevEmailsSent,
+                      previousPeriodLabel,
+                      isRate: false
+                    },
+                    { 
+                      label: 'Open Rate', 
+                      value: `${openRate.toFixed(1)}%`, 
+                      trend: (openRate - prevOpenRate).toFixed(2), 
+                      icon: Eye,
+                      positive: openRate > prevOpenRate,
+                      previousValue: prevOpenRate,
+                      previousPeriodLabel,
+                      isRate: true
+                    },
+                    { 
+                      label: 'Click Rate', 
+                      value: `${clickRate.toFixed(1)}%`, 
+                      trend: (clickRate - prevClickRate).toFixed(2), 
+                      icon: MousePointer,
+                      positive: clickRate > prevClickRate,
+                      previousValue: prevClickRate,
+                      previousPeriodLabel,
+                      isRate: true
+                    },
+                    { 
+                      label: 'Conversion Rate', 
+                      value: `${conversionRate.toFixed(1)}%`, 
+                      trend: (conversionRate - prevConversionRate).toFixed(2), 
+                      icon: Target,
+                      positive: conversionRate > prevConversionRate,
+                      previousValue: prevConversionRate,
+                      previousPeriodLabel,
+                      isRate: true
+                    }
                   ].map((metric, index) => (
                   <div key={index} className="bg-white p-6 rounded-xl border border-gray-200">
                     <div className="flex items-start justify-between mb-4">
@@ -1504,10 +1831,21 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       />
                     </div>
                     <div className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</div>
-                    <div className="flex items-center gap-1 text-sm text-green-600">
-                      <TrendingUp className="h-4 w-4" />
-                      +{metric.trend}{metric.trend < 10 ? 'pp' : '%'} vs Previous
+                    <div className={`flex items-center gap-1 text-sm ${metric.positive ? 'text-green-600' : 'text-red-600'}`}>
+                      {metric.positive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                      {Math.abs(Number(metric.trend))}{metric.isRate ? 'pp' : '%'} vs {metric.previousPeriodLabel}
                     </div>
+                    
+                    {/* Comparison value when enabled */}
+                    {compareEnabled && (
+                      <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
+                        {metric.previousPeriodLabel}: {
+                          metric.isRate 
+                            ? `${metric.previousValue.toFixed(1)}%`
+                            : formatNumber(metric.previousValue)
+                        }
+                      </div>
+                    )}
                   </div>
                 ))
                 })()}
