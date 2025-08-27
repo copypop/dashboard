@@ -1,147 +1,177 @@
+import * as XLSX from 'xlsx';
 import type { DashboardData } from '../types/dashboard';
 
-const API_URL = 'http://localhost:3001';
-const WS_URL = 'ws://localhost:3001';
+class DataService {
+  private cachedData: DashboardData | null = null;
+  private lastUpdateTime: Date | null = null;
+  private dataChangeListeners: ((data: DashboardData) => void)[] = [];
 
-export interface DataUpdate {
-  type: 'data-update' | 'file-added' | 'file-deleted' | 'initial-data';
-  data?: any;
-  lastModified?: string;
-  timestamp?: string;
-}
+  constructor() {
+    // Try to load cached data from localStorage on init
+    this.loadFromCache();
+  }
 
-export class DataService {
-  private ws: WebSocket | null = null;
-  private reconnectTimeout: NodeJS.Timeout | null = null;
-  private onDataUpdateCallback: ((data: DashboardData) => void) | null = null;
-  private onStatusChangeCallback: ((status: string) => void) | null = null;
-  
-  // Fetch initial data from API
-  async fetchData(): Promise<DashboardData | null> {
+  // Subscribe to data changes
+  public onDataChange(callback: (data: DashboardData) => void): () => void {
+    this.dataChangeListeners.push(callback);
+    
+    // Return unsubscribe function
+    return () => {
+      this.dataChangeListeners = this.dataChangeListeners.filter(cb => cb !== callback);
+    };
+  }
+
+  // Notify all listeners of data change
+  private notifyListeners(data: DashboardData) {
+    this.dataChangeListeners.forEach(callback => callback(data));
+  }
+
+  // Get current data
+  public getData(): DashboardData | null {
+    return this.cachedData;
+  }
+
+  // Get last update time
+  public getLastUpdateTime(): Date | null {
+    return this.lastUpdateTime;
+  }
+
+  // Load Excel file from public folder
+  public async loadFromPublicFolder(): Promise<DashboardData | null> {
     try {
-      const response = await fetch(`${API_URL}/api/dashboard-data`);
+      console.log('Attempting to load Excel from public folder...');
+      
+      // Try to fetch the Excel file from public folder
+      const response = await fetch('/CAAT_Dashboard_Data_2025.xlsx');
       
       if (!response.ok) {
-        const error = await response.json();
-        console.error('Failed to fetch data:', error);
-        throw new Error(error.message || 'Failed to fetch data');
+        console.log('Excel file not found in public folder');
+        return null;
       }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const data = this.parseExcelBuffer(arrayBuffer);
       
-      const result = await response.json();
-      return this.transformApiData(result.data);
+      // Cache the data
+      this.cachedData = data;
+      this.lastUpdateTime = new Date();
+      this.saveToCache();
+      this.notifyListeners(data);
+      
+      console.log('Excel loaded successfully from public folder');
+      return data;
     } catch (error) {
-      console.error('Error fetching data:', error);
-      throw error;
+      console.error('Error loading Excel from public folder:', error);
+      return null;
     }
   }
-  
-  // Check server status
-  async checkStatus(): Promise<{
-    fileExists: boolean;
-    filePath: string;
-    lastModified: string | null;
-    hasData: boolean;
-  }> {
+
+  // Load Excel file from user upload
+  public async loadFromFile(file: File): Promise<DashboardData> {
     try {
-      const response = await fetch(`${API_URL}/api/status`);
-      return await response.json();
+      console.log('Loading Excel from uploaded file...');
+      
+      const arrayBuffer = await file.arrayBuffer();
+      const data = this.parseExcelBuffer(arrayBuffer);
+      
+      // Cache the data
+      this.cachedData = data;
+      this.lastUpdateTime = new Date();
+      this.saveToCache();
+      this.notifyListeners(data);
+      
+      console.log('Excel loaded successfully from file upload');
+      return data;
     } catch (error) {
-      console.error('Error checking status:', error);
-      throw error;
+      console.error('Error loading Excel file:', error);
+      throw new Error('Failed to parse Excel file. Please ensure it is a valid Excel file.');
     }
   }
-  
-  // Connect to WebSocket for real-time updates
-  connect(
-    onDataUpdate: (data: DashboardData) => void,
-    onStatusChange?: (status: string) => void
-  ) {
-    this.onDataUpdateCallback = onDataUpdate;
-    this.onStatusChangeCallback = onStatusChange || null;
+
+  // Parse Excel buffer and transform to DashboardData
+  private parseExcelBuffer(arrayBuffer: ArrayBuffer): DashboardData {
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
     
-    this.ws = new WebSocket(WS_URL);
+    // Convert each sheet to JSON
+    const sheets: Record<string, any[]> = {};
     
-    this.ws.onopen = () => {
-      console.log('✅ Connected to real-time data updates');
-      this.onStatusChangeCallback?.('connected');
-      
-      // Clear any reconnect timeout
-      if (this.reconnectTimeout) {
-        clearTimeout(this.reconnectTimeout);
-        this.reconnectTimeout = null;
-      }
-    };
-    
-    this.ws.onmessage = (event) => {
-      try {
-        const update: DataUpdate = JSON.parse(event.data);
-        console.log('📨 Received update:', update.type);
-        
-        switch (update.type) {
-          case 'data-update':
-          case 'initial-data':
-          case 'file-added':
-            if (update.data) {
-              const transformedData = this.transformApiData(update.data);
-              this.onDataUpdateCallback?.(transformedData);
-              this.onStatusChangeCallback?.('updated');
-            }
-            break;
-            
-          case 'file-deleted':
-            this.onStatusChangeCallback?.('file-deleted');
-            break;
-        }
-      } catch (error) {
-        console.error('Error processing WebSocket message:', error);
-      }
-    };
-    
-    this.ws.onerror = (error) => {
-      console.error('❌ WebSocket error:', error);
-      this.onStatusChangeCallback?.('error');
-    };
-    
-    this.ws.onclose = () => {
-      console.log('🔌 WebSocket connection closed');
-      this.onStatusChangeCallback?.('disconnected');
-      
-      // Attempt to reconnect after 5 seconds
-      this.reconnectTimeout = setTimeout(() => {
-        console.log('🔄 Attempting to reconnect...');
-        this.connect(onDataUpdate, onStatusChange);
-      }, 5000);
-    };
+    workbook.SheetNames.forEach(sheetName => {
+      const worksheet = workbook.Sheets[sheetName];
+      sheets[sheetName] = XLSX.utils.sheet_to_json(worksheet);
+    });
+
+    // Transform to our data structure
+    return this.transformExcelData(sheets);
   }
-  
-  // Disconnect WebSocket
-  disconnect() {
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
-    }
-    
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-  }
-  
-  // Transform API data to match our TypeScript types
-  private transformApiData(apiData: any): DashboardData {
+
+  // Transform Excel data to match our TypeScript types
+  private transformExcelData(sheets: Record<string, any[]>): DashboardData {
     return {
-      config: this.parseConfig(apiData.Config || []),
-      websiteData: this.parseWebsiteData(apiData.Website_Data || []),
-      trafficSources: this.parseTrafficSources(apiData.Traffic_Sources || []),
-      searchData: this.parseSearchData(apiData.Search_Data || []),
-      socialData: this.parseSocialData(apiData.Social_Data || []),
-      emailData: this.parseEmailData(apiData.Email_Data || []),
-      leadsData: this.parseLeadsData(apiData.Leads_Data || []),
-      targets: this.parseTargets(apiData.Targets || []),
-      notes: this.parseNotes(apiData.Notes || [])
+      config: this.parseConfig(sheets.Config || []),
+      websiteData: this.parseWebsiteData(sheets.Website_Data || []),
+      trafficSources: this.parseTrafficSources(sheets.Traffic_Sources || []),
+      searchData: this.parseSearchData(sheets.Search_Data || []),
+      socialData: this.parseSocialData(sheets.Social_Data || []),
+      emailData: this.parseEmailData(sheets.Email_Data || []),
+      leadsData: this.parseLeadsData(sheets.Leads_Data || []),
+      shareOfVoiceData: this.parseShareOfVoiceData(sheets.Share_of_voice || []),
+      targets: this.parseTargets(sheets.Targets || []),
+      notes: this.parseNotes(sheets.Notes || [])
     };
   }
-  
+
+  // Save data to localStorage
+  private saveToCache() {
+    if (!this.cachedData) return;
+    
+    try {
+      const cacheData = {
+        data: this.cachedData,
+        timestamp: this.lastUpdateTime?.toISOString()
+      };
+      localStorage.setItem('caat_dashboard_data', JSON.stringify(cacheData));
+      console.log('Data saved to cache');
+    } catch (error) {
+      console.error('Error saving to cache:', error);
+    }
+  }
+
+  // Load data from localStorage
+  private loadFromCache() {
+    try {
+      const cached = localStorage.getItem('caat_dashboard_data');
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        this.cachedData = data;
+        this.lastUpdateTime = new Date(timestamp);
+        console.log('Data loaded from cache:', this.lastUpdateTime);
+      }
+    } catch (error) {
+      console.error('Error loading from cache:', error);
+    }
+  }
+
+  // Clear cached data
+  public clearCache() {
+    this.cachedData = null;
+    this.lastUpdateTime = null;
+    localStorage.removeItem('caat_dashboard_data');
+    console.log('Cache cleared');
+  }
+
+  // Refresh data (try public folder first, return cached if fails)
+  public async refresh(): Promise<DashboardData | null> {
+    // Try to load from public folder
+    const freshData = await this.loadFromPublicFolder();
+    
+    if (freshData) {
+      return freshData;
+    }
+    
+    // Return cached data if available
+    return this.cachedData;
+  }
+
   private parseConfig(data: any[]): any {
     const config: any = {};
     data.forEach((row: any) => {
@@ -190,11 +220,10 @@ export class DataService {
       quarter: row.Quarter,
       month: Number(row.Month),
       monthName: row.Month_Name,
-      impressions: this.parseNumber(row.Impressions) || 0,
-      clicks: this.parseNumber(row.Clicks) || 0,
-      ctr: this.parseNumber(row.CTR) || 0,
-      avgPosition: this.parseNumber(row.Avg_Position) || 0,
-      source: row.Source || null
+      impressions: this.parseNumber(row.Impressions),
+      clicks: this.parseNumber(row.Clicks),
+      ctr: this.parseNumber(row.CTR),
+      avgPosition: this.parseNumber(row.Avg_Position)
     }));
   }
   
@@ -204,18 +233,17 @@ export class DataService {
       quarter: row.Quarter,
       month: Number(row.Month),
       monthName: row.Month_Name,
-      channel: row.Channel || null,
-      type: row.Type || null,
+      channel: row.Channel,
       impressions: this.parseNumber(row.Impressions),
-      views: this.parseNumber(row.Views),
+      engagements: this.parseNumber(row.Engagements),
       clicks: this.parseNumber(row.Clicks),
-      ctr: this.parseNumber(row.CTR),
       reactions: this.parseNumber(row.Reactions),
       comments: this.parseNumber(row.Comments),
       shares: this.parseNumber(row.Shares),
+      videoViews: this.parseNumber(row.Video_Views),
+      postFrequency: this.parseNumber(row.Post_Frequency),
       engagementRate: this.parseNumber(row.Engagement_Rate),
-      budget: this.parseNumber(row.Budget),
-      cpc: this.parseNumber(row.CPC)
+      budget: this.parseNumber(row.Budget)
     }));
   }
   
@@ -225,20 +253,18 @@ export class DataService {
       quarter: row.Quarter,
       month: Number(row.Month),
       monthName: row.Month_Name,
-      campaignType: row.Campaign_Type || null,
       emailsSent: this.parseNumber(row.Emails_Sent),
       emailsDelivered: this.parseNumber(row.Emails_Delivered),
-      totalOpens: this.parseNumber(row.Total_Opens),
+      deliveryRate: this.parseNumber(row.Delivery_Rate),
       uniqueOpens: this.parseNumber(row.Unique_Opens),
       openRate: this.parseNumber(row.Open_Rate),
-      totalClicks: this.parseNumber(row.Total_Clicks),
       uniqueClicks: this.parseNumber(row.Unique_Clicks),
-      ctr: this.parseNumber(row.CTR),
-      ctor: this.parseNumber(row.CTOR),
+      clickRate: this.parseNumber(row.Click_Rate),
+      ctoRate: this.parseNumber(row.CTO_Rate),
       hardBounces: this.parseNumber(row.Hard_Bounces),
       softBounces: this.parseNumber(row.Soft_Bounces),
-      bounceRate: this.parseNumber(row.Bounce_Rate),
-      unsubscribes: this.parseNumber(row.Unsubscribes)
+      unsubscribes: this.parseNumber(row.Unsubscribes),
+      conversionRate: this.parseNumber(row.Conversion_Rate)
     }));
   }
   
@@ -256,6 +282,20 @@ export class DataService {
       salesAccepted: this.parseNumber(row.Sales_Accepted),
       opportunities: this.parseNumber(row.Opportunities),
       pipelineValue: this.parseNumber(row.Pipeline_Value)
+    }));
+  }
+  
+  private parseShareOfVoiceData(data: any[]): any[] {
+    return data.map(row => ({
+      year: Number(row.Year),
+      quarter: row.Quarter,
+      month: Number(row.Month),
+      monthName: row.Month_Name,
+      mediaMentionVolume: this.parseNumber(row.Media_Mention_Volume),
+      mediaReachImpressions: this.parseNumber(row.Media_Reach_Impressions),
+      socialMentions: this.parseNumber(row.SM_Mentions),
+      competitor1Mentions: this.parseNumber(row.Competitor1_Mentions),
+      competitor2Mentions: this.parseNumber(row.Competitor2_Mentions)
     }));
   }
   

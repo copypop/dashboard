@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   LineChart,
   Line,
@@ -40,14 +40,17 @@ import {
   Settings,
   Eye,
   MousePointer,
-  ArrowRight
+  ArrowRight,
+  Upload,
+  FileText,
+  Database
 } from 'lucide-react';
 import { dataService } from '../services/dataService';
 import type { DashboardData } from '../types/dashboard';
 import { InfoTooltip } from './ui/InfoTooltip';
 import { ExportButton } from './ui/ExportButton';
 
-type TabType = 'overview' | 'website' | 'seo' | 'social' | 'email' | 'leads' | 'trends' | 'quarterly' | 'yoy';
+type TabType = 'overview' | 'website' | 'seo' | 'social' | 'email' | 'leads' | 'sov' | 'quarterly' | 'yoy';
 type PeriodType = 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'Year';
 type ChartView = 'quarterly' | 'monthly' | 'yoy' | 'annual' | 'all' | 'traffic' | 'engagement' | 'conversion';
 
@@ -67,43 +70,85 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
   const [yoyChartView, setYoyChartView] = useState<ChartView>('quarterly');
   const [isLoading, setIsLoading] = useState(!initialData);
   const [error, setError] = useState<string | null>(null);
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'error'>('disconnected');
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Connect to real-time data updates
+  // Load data on mount
   useEffect(() => {
     if (!initialData) {
       loadInitialData();
+    } else {
+      setData(initialData);
+      setLastUpdate(dataService.getLastUpdateTime());
     }
 
-    // Connect to WebSocket for real-time updates
-    dataService.connect(
-      (newData) => {
-        setData(newData);
-        setLastUpdate(new Date());
-      },
-      (status) => {
-        if (status === 'connected') setConnectionStatus('connected');
-        else if (status === 'error' || status === 'disconnected') setConnectionStatus('disconnected');
-        else if (status === 'file-deleted') setError('Data file deleted');
-      }
-    );
+    // Subscribe to data changes
+    const unsubscribe = dataService.onDataChange((newData) => {
+      setData(newData);
+      setLastUpdate(dataService.getLastUpdateTime());
+    });
 
-    return () => {
-      dataService.disconnect();
-    };
+    return unsubscribe;
   }, [initialData]);
 
   const loadInitialData = async () => {
     try {
       setIsLoading(true);
-      const fetchedData = await dataService.fetchData();
+      
+      // Try to load from public folder first
+      let fetchedData = await dataService.loadFromPublicFolder();
+      
+      // If not in public folder, check cache
+      if (!fetchedData) {
+        fetchedData = dataService.getData();
+      }
+      
       if (fetchedData) {
         setData(fetchedData);
+        setLastUpdate(dataService.getLastUpdateTime());
         setError(null);
+      } else {
+        // No data available, show upload prompt
+        setShowUploadModal(true);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data');
+      setShowUploadModal(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsLoading(true);
+      setShowUploadModal(false);
+      const data = await dataService.loadFromFile(file);
+      setData(data);
+      setLastUpdate(dataService.getLastUpdateTime());
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load Excel file');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    try {
+      setIsLoading(true);
+      const data = await dataService.refresh();
+      if (data) {
+        setData(data);
+        setLastUpdate(dataService.getLastUpdateTime());
+        setError(null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to refresh data');
     } finally {
       setIsLoading(false);
     }
@@ -195,6 +240,17 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
       (previousQuarter ? d.quarter === previousQuarter : true)
     );
 
+    // Add SOV data filtering
+    const currentSOV = data.shareOfVoiceData.filter(d => 
+      d.year === selectedYear && 
+      (currentQuarter ? d.quarter === currentQuarter : true)
+    );
+
+    const previousSOV = data.shareOfVoiceData.filter(d => 
+      d.year === previousYear && 
+      (previousQuarter ? d.quarter === previousQuarter : true)
+    );
+
     // Calculate aggregated metrics
     const totalSessions = currentData.reduce((sum, d) => sum + (d.sessions || 0), 0);
     const totalVisitors = currentData.reduce((sum, d) => sum + (d.uniqueVisitors || 0), 0);
@@ -210,6 +266,13 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
 
     const totalNewLeads = currentLeads.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0);
 
+    // Calculate SOV metrics (using only media mentions to match SOV tab calculation)
+    const ourMediaMentions = currentSOV.reduce((sum, d) => sum + (d.mediaMentionVolume || 0), 0);
+    const competitor1Mentions = currentSOV.reduce((sum, d) => sum + (d.competitor1Mentions || 0), 0);
+    const competitor2Mentions = currentSOV.reduce((sum, d) => sum + (d.competitor2Mentions || 0), 0);
+    const totalCompetitiveMentions = ourMediaMentions + competitor1Mentions + competitor2Mentions;
+    const shareOfVoice = totalCompetitiveMentions > 0 ? (ourMediaMentions / totalCompetitiveMentions) * 100 : 0;
+
     // Previous period metrics for comparison
     const prevSessions = previousData.reduce((sum, d) => sum + (d.sessions || 0), 0);
     const prevVisitors = previousData.reduce((sum, d) => sum + (d.uniqueVisitors || 0), 0);
@@ -224,6 +287,13 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
     const prevEmailOpenRate = prevEmailsSent > 0 ? (prevUniqueOpens / prevEmailsSent) * 100 : 0;
     
     const prevNewLeads = previousLeads.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0);
+
+    // Previous period SOV metrics (using only media mentions to match SOV tab calculation)
+    const prevOurMediaMentions = previousSOV.reduce((sum, d) => sum + (d.mediaMentionVolume || 0), 0);
+    const prevCompetitor1Mentions = previousSOV.reduce((sum, d) => sum + (d.competitor1Mentions || 0), 0);
+    const prevCompetitor2Mentions = previousSOV.reduce((sum, d) => sum + (d.competitor2Mentions || 0), 0);
+    const prevTotalCompetitiveMentions = prevOurMediaMentions + prevCompetitor1Mentions + prevCompetitor2Mentions;
+    const prevShareOfVoice = prevTotalCompetitiveMentions > 0 ? (prevOurMediaMentions / prevTotalCompetitiveMentions) * 100 : 0;
 
     const digitalReach = totalVisitors + totalImpressions;
     const prevReach = prevVisitors + prevImpressions;
@@ -265,6 +335,15 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
         formatted: formatNumber(totalNewLeads),
         trend: calculateTrend(totalNewLeads, prevNewLeads),
         previousValue: prevNewLeads
+      },
+      shareOfVoice: {
+        value: shareOfVoice,
+        formatted: `${shareOfVoice.toFixed(1)}%`,
+        trend: {
+          value: Math.abs(shareOfVoice - prevShareOfVoice),
+          direction: shareOfVoice >= prevShareOfVoice ? 'up' : 'down'
+        },
+        previousValue: prevShareOfVoice
       },
       marketingROI: {
         value: 3.2,
@@ -333,10 +412,21 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
         d.year === yearNum && d.quarter === quarter
       );
 
+      const sovData = data.shareOfVoiceData.filter(d => 
+        d.year === yearNum && d.quarter === quarter
+      );
+
       // Calculate meaningful conversion rate: Marketing Qualified Leads / New Prospects
       const newProspects = leadsData.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0);
       const marketingQualified = leadsData.reduce((sum, d) => sum + (d.marketingQualified || 0), 0);
       const prospectToMQLRate = newProspects > 0 ? (marketingQualified / newProspects) * 100 : 0;
+
+      // Calculate Share of Voice for the quarter (using only media mentions)
+      const ourMediaMentions = sovData.reduce((sum, d) => sum + (d.mediaMentionVolume || 0), 0);
+      const competitor1 = sovData.reduce((sum, d) => sum + (d.competitor1Mentions || 0), 0);
+      const competitor2 = sovData.reduce((sum, d) => sum + (d.competitor2Mentions || 0), 0);
+      const totalCompetitiveMentions = ourMediaMentions + competitor1 + competitor2;
+      const shareOfVoice = totalCompetitiveMentions > 0 ? (ourMediaMentions / totalCompetitiveMentions) * 100 : 0;
 
       return {
         period: q,
@@ -344,7 +434,8 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
         socialImpressions: socialData.reduce((sum, d) => sum + (d.impressions || 0), 0),
         emailsSent: emailData.reduce((sum, d) => sum + (d.emailsSent || 0), 0),
         leads: newProspects,
-        conversionRate: prospectToMQLRate
+        conversionRate: prospectToMQLRate,
+        shareOfVoice: shareOfVoice
       };
     });
   };
@@ -432,12 +523,78 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to Load Dashboard</h3>
           <p className="text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={loadInitialData}
-            className="px-4 py-2 bg-[#005C84] text-white rounded-lg hover:bg-[#004A6C] transition-colors"
-          >
-            Retry
-          </button>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={loadInitialData}
+              className="px-4 py-2 bg-[#005C84] text-white rounded-lg hover:bg-[#004A6C] transition-colors"
+            >
+              Retry
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="px-4 py-2 bg-white text-[#005C84] border border-[#005C84] rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Upload Excel
+            </button>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+        </div>
+      </div>
+    );
+  }
+  
+  // Upload Modal
+  if (showUploadModal && !data) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="bg-white rounded-xl shadow-xl p-8 max-w-md w-full">
+          <img 
+            src="/caat-logo-en.svg" 
+            alt="CAAT Pension Plan" 
+            className="h-12 w-auto mx-auto mb-6"
+          />
+          <h2 className="text-2xl font-bold text-gray-900 text-center mb-2">Welcome to CAAT Dashboard</h2>
+          <p className="text-gray-600 text-center mb-6">
+            Please upload the Excel data file to get started
+          </p>
+          
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-[#005C84] transition-colors">
+            <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-sm text-gray-600 mb-4">
+              Click to upload or drag and drop<br />
+              CAAT_Dashboard_Data_2025.xlsx
+            </p>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="px-6 py-2 bg-[#005C84] text-white rounded-lg hover:bg-[#004A6C] transition-colors"
+            >
+              Select Excel File
+            </button>
+          </div>
+          
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+          
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+            <div className="flex items-start gap-2">
+              <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-blue-800">
+                <p className="font-semibold mb-1">Tip:</p>
+                <p>Place the Excel file in the public folder to load automatically on startup.</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -454,11 +611,12 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               <img 
                 src="/caat-logo-en.svg" 
                 alt="CAAT Pension Plan" 
-                className="h-16 w-auto mt-1"
+                className="h-16 w-auto -mt-1"
               />
+              {/* Vertical Separator */}
+              <div className="w-px h-16 bg-gray-300 -mt-1"></div>
               <div>
                 <h1 className="text-3xl font-semibold mb-2 text-[#005C84]">Marketing Dashboard</h1>
-                <p className="text-base text-gray-700">Comprehensive Performance Overview</p>
                 <p className="text-sm text-gray-600 mt-2">{getDateRange()}</p>
               </div>
             </div>
@@ -543,6 +701,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
             { id: 'social', label: 'Social Media' },
             { id: 'email', label: 'Email Marketing' },
             { id: 'leads', label: 'Leads & Pipeline' },
+            { id: 'sov', label: 'Share of Voice' },
             { id: 'quarterly', label: 'Quarterly Analysis' },
             { id: 'yoy', label: 'Year-over-Year' }
           ].map(tab => (
@@ -691,6 +850,31 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   {compareEnabled && (
                     <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
                       {kpis.previousPeriodLabel}: {kpis.newLeads.previousValue}
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all hover:-translate-y-1 relative">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#005C84] to-[#55A51C] rounded-l-xl" />
+                  <div className="flex items-center text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                    Share of Voice
+                    <InfoTooltip 
+                      title="Share of Voice"
+                      description="Your brand's percentage of the total conversation in your industry across media and social channels."
+                      calculation="(Your Mentions ÷ Total Industry Mentions) × 100"
+                      example="If you have 100 mentions and competitors have 200, your SOV is 33.3%"
+                      icon="info"
+                      position="auto"
+                    />
+                  </div>
+                  <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.shareOfVoice.formatted}</div>
+                  <div className={`flex items-center gap-1 text-sm ${kpis.shareOfVoice.trend.direction === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+                    {kpis.shareOfVoice.trend.direction === 'up' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                    {kpis.shareOfVoice.trend.value.toFixed(1)}% vs {kpis.previousPeriodLabel}
+                  </div>
+                  {compareEnabled && (
+                    <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
+                      {kpis.previousPeriodLabel}: {kpis.shareOfVoice.previousValue.toFixed(1)}%
                     </div>
                   )}
                 </div>
@@ -2164,7 +2348,303 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
             </div>
           )}
 
+          {/* Share of Voice Tab */}
+          {activeTab === 'sov' && data && (
+            <div id="tab-content-sov" className="space-y-8 animate-fadeIn">
+              {/* Metrics Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {(() => {
+                  const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
+                  const sovData = data.shareOfVoiceData.filter(d => 
+                    d.year === selectedYear && 
+                    (currentQuarter ? d.quarter === currentQuarter : true)
+                  );
+                  
+                  // Calculate metrics
+                  const totalMentions = sovData.reduce((sum, d) => sum + (d.mediaMentionVolume || 0), 0);
+                  const totalReach = sovData.reduce((sum, d) => sum + (d.mediaReachImpressions || 0), 0);
+                  const socialMentions = sovData.reduce((sum, d) => sum + (d.socialMentions || 0), 0);
+                  const competitor1Mentions = sovData.reduce((sum, d) => sum + (d.competitor1Mentions || 0), 0);
+                  const competitor2Mentions = sovData.reduce((sum, d) => sum + (d.competitor2Mentions || 0), 0);
+                  
+                  // Calculate Share of Voice percentage
+                  const totalCompetitiveMentions = totalMentions + competitor1Mentions + competitor2Mentions;
+                  const shareOfVoice = totalCompetitiveMentions > 0 
+                    ? ((totalMentions / totalCompetitiveMentions) * 100).toFixed(1) 
+                    : 0;
+                  
+                  // Calculate previous period for comparison
+                  let previousQuarter, previousYear;
+                  if (compareType === 'prev_year') {
+                    previousQuarter = currentQuarter;
+                    previousYear = selectedYear - 1;
+                  } else {
+                    if (currentQuarter) {
+                      previousQuarter = currentQuarter === 'Q1' ? 'Q4' : 
+                                       currentQuarter === 'Q2' ? 'Q1' :
+                                       currentQuarter === 'Q3' ? 'Q2' : 'Q3';
+                      previousYear = currentQuarter === 'Q1' ? selectedYear - 1 : selectedYear;
+                    } else {
+                      previousQuarter = null;
+                      previousYear = selectedYear - 1;
+                    }
+                  }
+                  
+                  const previousSovData = data.shareOfVoiceData.filter(d => 
+                    d.year === previousYear && 
+                    (previousQuarter ? d.quarter === previousQuarter : true)
+                  );
+                  
+                  const prevMentions = previousSovData.reduce((sum, d) => sum + (d.mediaMentionVolume || 0), 0);
+                  const prevReach = previousSovData.reduce((sum, d) => sum + (d.mediaReachImpressions || 0), 0);
+                  const prevSocialMentions = previousSovData.reduce((sum, d) => sum + (d.socialMentions || 0), 0);
+                  
+                  return [
+                    {
+                      label: 'Media Mentions',
+                      value: totalMentions.toLocaleString(),
+                      trend: prevMentions > 0 ? ((totalMentions - prevMentions) / prevMentions * 100).toFixed(1) : 0,
+                      icon: Globe,
+                      positive: totalMentions > prevMentions,
+                      previousValue: prevMentions,
+                      description: 'Total mentions across traditional media outlets',
+                      calculation: 'Sum of all media mentions for selected period',
+                      example: 'News articles, press releases, broadcast mentions'
+                    },
+                    {
+                      label: 'Total Media Reach',
+                      value: formatNumber(totalReach),
+                      trend: prevReach > 0 ? ((totalReach - prevReach) / prevReach * 100).toFixed(1) : 0,
+                      icon: Users,
+                      positive: totalReach > prevReach,
+                      previousValue: prevReach,
+                      description: 'Estimated audience reached through media coverage',
+                      calculation: 'Sum of circulation/viewership of all media mentions',
+                      example: 'If mentioned in outlet with 1M readers, reach = 1M'
+                    },
+                    {
+                      label: 'Social Media Mentions',
+                      value: socialMentions.toLocaleString(),
+                      trend: prevSocialMentions > 0 ? ((socialMentions - prevSocialMentions) / prevSocialMentions * 100).toFixed(1) : 0,
+                      icon: Share2,
+                      positive: socialMentions > prevSocialMentions,
+                      previousValue: prevSocialMentions,
+                      description: 'Brand mentions across social media platforms',
+                      calculation: 'Twitter + LinkedIn + Facebook + Instagram mentions',
+                      example: 'Tweets, posts, comments mentioning CAAT'
+                    }
+                  ].map((metric, index) => (
+                    <div key={index} className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="p-2 bg-[#005C84]/10 rounded-lg">
+                          <metric.icon className="h-5 w-5 text-[#005C84]" />
+                        </div>
+                      </div>
+                      <div className="flex items-center text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                        {metric.label}
+                        <InfoTooltip 
+                          title={metric.label}
+                          description={metric.description}
+                          calculation={metric.calculation}
+                          example={metric.example}
+                          icon="info"
+                          position="auto"
+                        />
+                      </div>
+                      <div className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</div>
+                      <div className={`flex items-center gap-1 text-sm ${metric.positive ? 'text-green-600' : 'text-red-600'}`}>
+                        {metric.positive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                        {Math.abs(Number(metric.trend))}% vs {previousQuarter || previousYear}
+                      </div>
+                      {compareEnabled && (
+                        <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
+                          Previous: {metric.previousValue.toLocaleString()}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                })()}
+              </div>
 
+              {/* Share of Voice Percentage Card */}
+              <div className="bg-gradient-to-br from-[#005C84] to-[#55A51C] p-8 rounded-xl text-white">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-xl font-semibold mb-2 opacity-90">Your Share of Voice</h3>
+                    <div className="text-5xl font-bold">
+                      {(() => {
+                        const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
+                        const sovData = data.shareOfVoiceData.filter(d => 
+                          d.year === selectedYear && 
+                          (currentQuarter ? d.quarter === currentQuarter : true)
+                        );
+                        const totalMentions = sovData.reduce((sum, d) => sum + (d.mediaMentionVolume || 0), 0);
+                        const competitor1Mentions = sovData.reduce((sum, d) => sum + (d.competitor1Mentions || 0), 0);
+                        const competitor2Mentions = sovData.reduce((sum, d) => sum + (d.competitor2Mentions || 0), 0);
+                        const totalCompetitiveMentions = totalMentions + competitor1Mentions + competitor2Mentions;
+                        const shareOfVoice = totalCompetitiveMentions > 0 
+                          ? ((totalMentions / totalCompetitiveMentions) * 100).toFixed(1) 
+                          : 0;
+                        return shareOfVoice;
+                      })()}%
+                    </div>
+                    <p className="mt-2 opacity-80">of total industry mentions</p>
+                  </div>
+                  <InfoTooltip 
+                    title="Share of Voice"
+                    description="Your brand's percentage of total media mentions compared to competitors"
+                    calculation="(Your Mentions ÷ Total Industry Mentions) × 100"
+                    example="If you have 100 mentions and competitors have 200, your SOV is 33.3%"
+                    icon="info"
+                    position="auto"
+                  />
+                </div>
+              </div>
+
+              {/* Competitor Comparison Chart */}
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">Competitor Comparison</h3>
+                <ResponsiveContainer width="100%" height={400}>
+                  <BarChart data={(() => {
+                    const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
+                    const sovData = data.shareOfVoiceData.filter(d => 
+                      d.year === selectedYear && 
+                      (currentQuarter ? d.quarter === currentQuarter : true)
+                    );
+                    
+                    // Group by month for better visualization
+                    const monthlyData = sovData.map(d => ({
+                      month: d.monthName,
+                      'CAAT': d.mediaMentionVolume || 0,
+                      'Competitor 1': d.competitor1Mentions || 0,
+                      'Competitor 2': d.competitor2Mentions || 0
+                    }));
+                    
+                    return monthlyData;
+                  })()}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="CAAT" fill="#005C84" />
+                    <Bar dataKey="Competitor 1" fill="#55A51C" />
+                    <Bar dataKey="Competitor 2" fill="#f59e0b" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Competitor Ranking Table */}
+              <div className="bg-white rounded-xl border border-gray-200">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900">Market Position Ranking</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Rank</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Brand</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Mentions</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Share of Voice</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Change</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {(() => {
+                        const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
+                        const sovData = data.shareOfVoiceData.filter(d => 
+                          d.year === selectedYear && 
+                          (currentQuarter ? d.quarter === currentQuarter : true)
+                        );
+                        
+                        const totalMentions = sovData.reduce((sum, d) => sum + (d.mediaMentionVolume || 0), 0);
+                        const competitor1Mentions = sovData.reduce((sum, d) => sum + (d.competitor1Mentions || 0), 0);
+                        const competitor2Mentions = sovData.reduce((sum, d) => sum + (d.competitor2Mentions || 0), 0);
+                        const totalAll = totalMentions + competitor1Mentions + competitor2Mentions;
+                        
+                        const brands = [
+                          { 
+                            name: 'CAAT Pension Plan', 
+                            mentions: totalMentions,
+                            sov: totalAll > 0 ? (totalMentions / totalAll * 100) : 0,
+                            change: 2.3,
+                            isUs: true
+                          },
+                          { 
+                            name: 'Competitor 1', 
+                            mentions: competitor1Mentions,
+                            sov: totalAll > 0 ? (competitor1Mentions / totalAll * 100) : 0,
+                            change: -1.2,
+                            isUs: false
+                          },
+                          { 
+                            name: 'Competitor 2', 
+                            mentions: competitor2Mentions,
+                            sov: totalAll > 0 ? (competitor2Mentions / totalAll * 100) : 0,
+                            change: -0.8,
+                            isUs: false
+                          }
+                        ].sort((a, b) => b.mentions - a.mentions);
+                        
+                        return brands.map((brand, index) => (
+                          <tr key={index} className={brand.isUs ? 'bg-blue-50' : 'hover:bg-gray-50'}>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center">
+                                <span className={`text-lg font-bold ${index === 0 ? 'text-yellow-500' : 'text-gray-400'}`}>
+                                  #{index + 1}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center">
+                                <span className={`font-medium ${brand.isUs ? 'text-[#005C84]' : 'text-gray-900'}`}>
+                                  {brand.name}
+                                </span>
+                                {brand.isUs && (
+                                  <span className="ml-2 px-2 py-1 text-xs bg-[#005C84] text-white rounded-md">You</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600">
+                              {brand.mentions.toLocaleString()}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center">
+                                <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                                  <div 
+                                    className={`h-2 rounded-full ${brand.isUs ? 'bg-[#005C84]' : 'bg-gray-400'}`}
+                                    style={{ width: `${brand.sov}%` }}
+                                  />
+                                </div>
+                                <span className="text-sm font-medium">{brand.sov.toFixed(1)}%</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className={`flex items-center gap-1 text-sm ${brand.change > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {brand.change > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                                {Math.abs(brand.change)}%
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`px-2 py-1 text-xs font-medium rounded-md ${
+                                index === 0 ? 'bg-green-100 text-green-800' : 
+                                brand.isUs ? 'bg-yellow-100 text-yellow-800' : 
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {index === 0 ? 'Leader' : brand.isUs ? 'Rising' : 'Competing'}
+                              </span>
+                            </td>
+                          </tr>
+                        ));
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Quarterly Analysis Tab */}
           {activeTab === 'quarterly' && data && (
@@ -2208,6 +2688,9 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                     {(quarterlyChartView === 'all' || quarterlyChartView === 'conversion') && (
                       <Bar dataKey="leads" fill="#f59e0b" name="New Leads" />
                     )}
+                    {(quarterlyChartView === 'all' || quarterlyChartView === 'engagement') && (
+                      <Bar dataKey="shareOfVoice" fill="#06b6d4" name="Share of Voice %" />
+                    )}
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -2230,7 +2713,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {(() => {
-                        const metrics = ['Website Sessions', 'Social Impressions', 'Emails Sent', 'Leads Generated', 'Conversion Rate'];
+                        const metrics = ['Website Sessions', 'Social Impressions', 'Emails Sent', 'Leads Generated', 'Share of Voice %', 'Conversion Rate'];
                         
                         return metrics.map(metric => {
                           const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
@@ -2255,6 +2738,13 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                               } else if (metric === 'Leads Generated') {
                                 const leadsData = data.leadsData.filter(d => d.year === y && d.quarter === q);
                                 values[key] = leadsData.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0);
+                              } else if (metric === 'Share of Voice %') {
+                                const sovData = data.shareOfVoiceData.filter(d => d.year === y && d.quarter === q);
+                                const ourMediaMentions = sovData.reduce((sum, d) => sum + (d.mediaMentionVolume || 0), 0);
+                                const competitor1 = sovData.reduce((sum, d) => sum + (d.competitor1Mentions || 0), 0);
+                                const competitor2 = sovData.reduce((sum, d) => sum + (d.competitor2Mentions || 0), 0);
+                                const totalCompetitiveMentions = ourMediaMentions + competitor1 + competitor2;
+                                values[key] = totalCompetitiveMentions > 0 ? (ourMediaMentions / totalCompetitiveMentions) * 100 : 0;
                               } else if (metric === 'Conversion Rate') {
                                 const websiteData = data.websiteData.filter(d => d.year === y && d.quarter === q);
                                 const leadsData = data.leadsData.filter(d => d.year === y && d.quarter === q);
@@ -2288,19 +2778,19 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                         <tr key={index} className="hover:bg-gray-50">
                           <td className="px-6 py-4 text-sm font-medium text-gray-900">{row.metric}</td>
                           <td className="px-6 py-4 text-sm text-gray-600">
-                            {row.metric === 'Conversion Rate' ? `${row.q1_24}%` : row.q1_24.toLocaleString()}
+                            {(row.metric === 'Conversion Rate' || row.metric === 'Share of Voice %') ? `${row.q1_24.toFixed(1)}%` : row.q1_24.toLocaleString()}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-600">
-                            {row.metric === 'Conversion Rate' ? `${row.q2_24}%` : row.q2_24.toLocaleString()}
+                            {(row.metric === 'Conversion Rate' || row.metric === 'Share of Voice %') ? `${row.q2_24.toFixed(1)}%` : row.q2_24.toLocaleString()}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-600">
-                            {row.metric === 'Conversion Rate' ? `${row.q3_24}%` : row.q3_24.toLocaleString()}
+                            {(row.metric === 'Conversion Rate' || row.metric === 'Share of Voice %') ? `${row.q3_24.toFixed(1)}%` : row.q3_24.toLocaleString()}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-600">
-                            {row.metric === 'Conversion Rate' ? `${row.q4_24}%` : row.q4_24.toLocaleString()}
+                            {(row.metric === 'Conversion Rate' || row.metric === 'Share of Voice %') ? `${row.q4_24.toFixed(1)}%` : row.q4_24.toLocaleString()}
                           </td>
                           <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                            {row.metric === 'Conversion Rate' ? `${row.q1_25}%` : row.q1_25.toLocaleString()}
+                            {(row.metric === 'Conversion Rate' || row.metric === 'Share of Voice %') ? `${row.q1_25.toFixed(1)}%` : row.q1_25.toLocaleString()}
                           </td>
                           <td className="px-6 py-4 text-sm">
                             <span className="flex items-center gap-1 text-green-600">
@@ -2345,36 +2835,112 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
           )}
 
           {/* Year-over-Year Tab */}
-          {activeTab === 'yoy' && (
+          {activeTab === 'yoy' && data && (
             <div id="tab-content-yoy" className="space-y-8 animate-fadeIn">
               {/* YoY Comparison Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {[
-                  { title: 'Website Performance YoY', current: 15739, previous: 13245, change: 18.8, diff: 2494, unit: 'sessions' },
-                  { title: 'Social Media Reach YoY', current: 36307, previous: 28450, change: 27.6, diff: 7857, unit: 'impressions' },
-                  { title: 'Email Engagement YoY', current: 68.4, previous: 58.0, change: 17.9, diff: 10.4, unit: '% open rate', isPercent: true },
-                  { title: 'Lead Generation YoY', current: 146, previous: 92, change: 58.7, diff: 54, unit: 'leads' }
-                ].map((metric, index) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                {(() => {
+                  // Calculate YoY metrics dynamically
+                  const currentYear = selectedYear;
+                  const previousYear = currentYear - 1;
+                  const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
+                  
+                  // Website Sessions YoY
+                  const currentWebsite = data.websiteData.filter(d => 
+                    d.year === currentYear && (currentQuarter ? d.quarter === currentQuarter : true)
+                  );
+                  const prevWebsite = data.websiteData.filter(d => 
+                    d.year === previousYear && (currentQuarter ? d.quarter === currentQuarter : true)
+                  );
+                  const currentSessions = currentWebsite.reduce((sum, d) => sum + (d.sessions || 0), 0);
+                  const prevSessions = prevWebsite.reduce((sum, d) => sum + (d.sessions || 0), 0);
+                  const sessionsChange = prevSessions > 0 ? ((currentSessions - prevSessions) / prevSessions * 100) : 0;
+                  
+                  // Social Media YoY
+                  const currentSocial = data.socialData.filter(d => 
+                    d.year === currentYear && (currentQuarter ? d.quarter === currentQuarter : true)
+                  );
+                  const prevSocial = data.socialData.filter(d => 
+                    d.year === previousYear && (currentQuarter ? d.quarter === currentQuarter : true)
+                  );
+                  const currentImpressions = currentSocial.reduce((sum, d) => sum + (d.impressions || 0), 0);
+                  const prevImpressions = prevSocial.reduce((sum, d) => sum + (d.impressions || 0), 0);
+                  const impressionsChange = prevImpressions > 0 ? ((currentImpressions - prevImpressions) / prevImpressions * 100) : 0;
+                  
+                  // Email Open Rate YoY
+                  const currentEmail = data.emailData.filter(d => 
+                    d.year === currentYear && (currentQuarter ? d.quarter === currentQuarter : true)
+                  );
+                  const prevEmail = data.emailData.filter(d => 
+                    d.year === previousYear && (currentQuarter ? d.quarter === currentQuarter : true)
+                  );
+                  const currentEmailsSent = currentEmail.reduce((sum, d) => sum + (d.emailsSent || 0), 0);
+                  const currentOpens = currentEmail.reduce((sum, d) => sum + (d.uniqueOpens || 0), 0);
+                  const currentOpenRate = currentEmailsSent > 0 ? (currentOpens / currentEmailsSent * 100) : 0;
+                  const prevEmailsSent = prevEmail.reduce((sum, d) => sum + (d.emailsSent || 0), 0);
+                  const prevOpens = prevEmail.reduce((sum, d) => sum + (d.uniqueOpens || 0), 0);
+                  const prevOpenRate = prevEmailsSent > 0 ? (prevOpens / prevEmailsSent * 100) : 0;
+                  const openRateDiff = currentOpenRate - prevOpenRate;
+                  
+                  // Leads YoY
+                  const currentLeads = data.leadsData.filter(d => 
+                    d.year === currentYear && (currentQuarter ? d.quarter === currentQuarter : true)
+                  );
+                  const prevLeads = data.leadsData.filter(d => 
+                    d.year === previousYear && (currentQuarter ? d.quarter === currentQuarter : true)
+                  );
+                  const currentNewLeads = currentLeads.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0);
+                  const prevNewLeads = prevLeads.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0);
+                  const leadsChange = prevNewLeads > 0 ? ((currentNewLeads - prevNewLeads) / prevNewLeads * 100) : 0;
+                  
+                  // Share of Voice YoY (using only media mentions)
+                  const currentSOV = data.shareOfVoiceData.filter(d => 
+                    d.year === currentYear && (currentQuarter ? d.quarter === currentQuarter : true)
+                  );
+                  const prevSOV = data.shareOfVoiceData.filter(d => 
+                    d.year === previousYear && (currentQuarter ? d.quarter === currentQuarter : true)
+                  );
+                  const currentOurMediaMentions = currentSOV.reduce((sum, d) => sum + (d.mediaMentionVolume || 0), 0);
+                  const currentComp1 = currentSOV.reduce((sum, d) => sum + (d.competitor1Mentions || 0), 0);
+                  const currentComp2 = currentSOV.reduce((sum, d) => sum + (d.competitor2Mentions || 0), 0);
+                  const currentTotalCompetitiveMentions = currentOurMediaMentions + currentComp1 + currentComp2;
+                  const currentSOVPercent = currentTotalCompetitiveMentions > 0 ? (currentOurMediaMentions / currentTotalCompetitiveMentions) * 100 : 0;
+                  
+                  const prevOurMediaMentions = prevSOV.reduce((sum, d) => sum + (d.mediaMentionVolume || 0), 0);
+                  const prevComp1 = prevSOV.reduce((sum, d) => sum + (d.competitor1Mentions || 0), 0);
+                  const prevComp2 = prevSOV.reduce((sum, d) => sum + (d.competitor2Mentions || 0), 0);
+                  const prevTotalCompetitiveMentions = prevOurMediaMentions + prevComp1 + prevComp2;
+                  const prevSOVPercent = prevTotalCompetitiveMentions > 0 ? (prevOurMediaMentions / prevTotalCompetitiveMentions) * 100 : 0;
+                  const sovDiff = currentSOVPercent - prevSOVPercent;
+                  
+                  return [
+                    { title: 'Website Performance YoY', current: currentSessions, previous: prevSessions, change: sessionsChange, diff: currentSessions - prevSessions, unit: 'sessions' },
+                    { title: 'Social Media Reach YoY', current: currentImpressions, previous: prevImpressions, change: impressionsChange, diff: currentImpressions - prevImpressions, unit: 'impressions' },
+                    { title: 'Email Engagement YoY', current: currentOpenRate, previous: prevOpenRate, change: openRateDiff > 0 ? (openRateDiff / prevOpenRate * 100) : 0, diff: openRateDiff, unit: '% open rate', isPercent: true },
+                    { title: 'Lead Generation YoY', current: currentNewLeads, previous: prevNewLeads, change: leadsChange, diff: currentNewLeads - prevNewLeads, unit: 'leads' },
+                    { title: 'Share of Voice YoY', current: currentSOVPercent, previous: prevSOVPercent, change: sovDiff > 0 ? (sovDiff / prevSOVPercent * 100) : 0, diff: sovDiff, unit: '% market share', isPercent: true }
+                  ];
+                })().map((metric, index) => (
                   <div key={index} className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-xl">
                     <h4 className="text-sm font-semibold text-gray-600 mb-4">{metric.title}</h4>
                     <div className="flex justify-between items-end mb-3">
                       <div className="text-3xl font-bold text-[#005C84]">
-                        {metric.isPercent ? `${metric.current}%` : formatNumber(metric.current)}
+                        {metric.isPercent ? `${metric.current.toFixed(1)}%` : formatNumber(metric.current)}
                       </div>
                       <div className="text-right">
-                        <div className="text-xs text-gray-500">Q1 2024</div>
+                        <div className="text-xs text-gray-500">{currentQuarter || 'Year'} {previousYear}</div>
                         <div className="text-lg font-semibold text-gray-600">
-                          {metric.isPercent ? `${metric.previous}%` : formatNumber(metric.previous)}
+                          {metric.isPercent ? `${metric.previous.toFixed(1)}%` : formatNumber(metric.previous)}
                         </div>
                       </div>
                     </div>
                     <div className="flex justify-between items-center pt-3 border-t">
-                      <span className="flex items-center gap-1 text-green-600 text-sm font-medium">
-                        <TrendingUp className="h-4 w-4" />
-                        {metric.change}% YoY
+                      <span className={`flex items-center gap-1 text-sm font-medium ${metric.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {metric.change >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                        {metric.change >= 0 ? '+' : ''}{metric.change.toFixed(1)}% YoY
                       </span>
                       <span className="text-sm text-gray-600">
-                        +{metric.isPercent ? `${metric.diff}pp` : formatNumber(metric.diff)} {!metric.isPercent && metric.unit}
+                        {metric.diff >= 0 ? '+' : ''}{metric.isPercent ? `${metric.diff.toFixed(1)}pp` : formatNumber(metric.diff)} {!metric.isPercent && metric.unit}
                       </span>
                     </div>
                   </div>
@@ -2452,28 +3018,53 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
         <div className="bg-gray-50 px-10 py-4 border-t border-gray-200 flex justify-between items-center text-sm">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
-              <div className={`h-2 w-2 rounded-full ${connectionStatus === 'connected' ? 'bg-green-500' : 'bg-red-500'}`} />
+              <Database className="h-4 w-4 text-gray-500" />
               <span className="text-gray-600">
-                {connectionStatus === 'connected' ? 'Live Data' : 'Disconnected'}
+                {data ? 'Data Loaded' : 'No Data'}
               </span>
             </div>
-            <span className="text-gray-500">
-              Last updated: {lastUpdate.toLocaleTimeString()}
-            </span>
+            {lastUpdate && (
+              <span className="text-gray-500">
+                Last updated: {lastUpdate.toLocaleString()}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-4">
-            <button className="flex items-center gap-2 text-gray-600 hover:text-[#005C84] transition-colors">
-              <Settings className="h-4 w-4" />
-              Settings
-            </button>
             <button 
-              onClick={loadInitialData}
+              onClick={() => fileInputRef.current?.click()}
               className="flex items-center gap-2 text-gray-600 hover:text-[#005C84] transition-colors"
             >
-              <RefreshCw className="h-4 w-4" />
-              Refresh
+              <Upload className="h-4 w-4" />
+              Upload Excel
+            </button>
+            <button 
+              onClick={handleRefresh}
+              className="flex items-center gap-2 text-gray-600 hover:text-[#005C84] transition-colors"
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              {isLoading ? 'Refreshing...' : 'Refresh Data'}
+            </button>
+            <button 
+              onClick={() => {
+                if (confirm('This will clear all cached data. Continue?')) {
+                  dataService.clearCache();
+                  window.location.reload();
+                }
+              }}
+              className="flex items-center gap-2 text-gray-600 hover:text-red-600 transition-colors"
+            >
+              <Settings className="h-4 w-4" />
+              Clear Cache
             </button>
           </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
         </div>
       </div>
     </div>

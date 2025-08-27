@@ -22,3 +22,19 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment files - NEVER commit these
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Vercel
+.vercel
+
+# Security
+*.key
+*.pem
+*.cert
+password.txt
+passwords.txt

@@ -110,6 +110,18 @@ export interface Config {
   currentYear: number;
 }
 
+export interface ShareOfVoiceData {
+  year: number;
+  quarter: string;
+  month: number;
+  monthName: string;
+  mediaMentionVolume: number | null;
+  mediaReachImpressions: number | null;
+  socialMentions: number | null;
+  competitor1Mentions: number | null;
+  competitor2Mentions: number | null;
+}
+
 export interface DashboardData {
   config: Config;
   websiteData: WebsiteData[];
@@ -118,6 +130,7 @@ export interface DashboardData {
   socialData: SocialData[];
   emailData: EmailData[];
   leadsData: LeadsData[];
+  shareOfVoiceData: ShareOfVoiceData[];
   targets: Target[];
   notes: Note[];
 }
