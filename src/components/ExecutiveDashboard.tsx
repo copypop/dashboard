@@ -930,7 +930,141 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                 </div>
                 
                 <ResponsiveContainer width="100%" height={300}>
-                  <ComposedChart data={getQuarterlyChartData()}>
+                  <ComposedChart data={(() => {
+                    if (!data) return [];
+                    
+                    if (chartView === 'monthly') {
+                      // Show monthly data for current period
+                      const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
+                      const websiteData = data.websiteData.filter(d => 
+                        d.year === selectedYear && 
+                        (currentQuarter ? d.quarter === currentQuarter : true)
+                      );
+                      const socialData = data.socialData.filter(d => 
+                        d.year === selectedYear && 
+                        (currentQuarter ? d.quarter === currentQuarter : true)
+                      );
+                      const leadsData = data.leadsData.filter(d => 
+                        d.year === selectedYear && 
+                        (currentQuarter ? d.quarter === currentQuarter : true)
+                      );
+                      
+                      // Group by month
+                      const monthlyData: Record<string, any> = {};
+                      
+                      websiteData.forEach(d => {
+                        const key = d.monthName;
+                        if (!monthlyData[key]) {
+                          monthlyData[key] = { 
+                            period: d.monthName.slice(0, 3),
+                            month: d.month,
+                            sessions: 0,
+                            socialImpressions: 0,
+                            leads: 0,
+                            qualified: 0
+                          };
+                        }
+                        monthlyData[key].sessions += d.sessions || 0;
+                      });
+                      
+                      socialData.forEach(d => {
+                        const key = d.monthName;
+                        if (monthlyData[key]) {
+                          monthlyData[key].socialImpressions += d.impressions || 0;
+                        }
+                      });
+                      
+                      leadsData.forEach(d => {
+                        const key = d.monthName;
+                        if (monthlyData[key]) {
+                          monthlyData[key].leads += d.newMarketingProspects || 0;
+                          monthlyData[key].qualified += d.marketingQualified || 0;
+                        }
+                      });
+                      
+                      // Calculate conversion rate and sort by month
+                      return Object.values(monthlyData)
+                        .sort((a, b) => a.month - b.month)
+                        .map(d => ({
+                          ...d,
+                          conversionRate: d.leads > 0 ? (d.qualified / d.leads) * 100 : 0
+                        }));
+                        
+                    } else if (chartView === 'yoy') {
+                      // Show year-over-year comparison
+                      const periods = [];
+                      const currentYear = selectedYear;
+                      const prevYear = selectedYear - 1;
+                      
+                      if (selectedPeriod === 'Year') {
+                        // Show annual comparison
+                        const currentData = data.websiteData.filter(d => d.year === currentYear);
+                        const prevData = data.websiteData.filter(d => d.year === prevYear);
+                        const currentSocial = data.socialData.filter(d => d.year === currentYear);
+                        const prevSocial = data.socialData.filter(d => d.year === prevYear);
+                        const currentLeads = data.leadsData.filter(d => d.year === currentYear);
+                        const prevLeads = data.leadsData.filter(d => d.year === prevYear);
+                        
+                        const currentSessions = currentData.reduce((sum, d) => sum + (d.sessions || 0), 0);
+                        const prevSessions = prevData.reduce((sum, d) => sum + (d.sessions || 0), 0);
+                        const currentImpressions = currentSocial.reduce((sum, d) => sum + (d.impressions || 0), 0);
+                        const prevImpressions = prevSocial.reduce((sum, d) => sum + (d.impressions || 0), 0);
+                        const currentNewLeads = currentLeads.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0);
+                        const currentQualified = currentLeads.reduce((sum, d) => sum + (d.marketingQualified || 0), 0);
+                        const prevNewLeads = prevLeads.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0);
+                        const prevQualified = prevLeads.reduce((sum, d) => sum + (d.marketingQualified || 0), 0);
+                        
+                        periods.push({
+                          period: `${prevYear}`,
+                          sessions: prevSessions,
+                          socialImpressions: prevImpressions,
+                          conversionRate: prevNewLeads > 0 ? (prevQualified / prevNewLeads) * 100 : 0
+                        });
+                        periods.push({
+                          period: `${currentYear}`,
+                          sessions: currentSessions,
+                          socialImpressions: currentImpressions,
+                          conversionRate: currentNewLeads > 0 ? (currentQualified / currentNewLeads) * 100 : 0
+                        });
+                      } else {
+                        // Show same quarter comparison across years
+                        const quarter = selectedPeriod;
+                        const currentData = data.websiteData.filter(d => d.year === currentYear && d.quarter === quarter);
+                        const prevData = data.websiteData.filter(d => d.year === prevYear && d.quarter === quarter);
+                        const currentSocial = data.socialData.filter(d => d.year === currentYear && d.quarter === quarter);
+                        const prevSocial = data.socialData.filter(d => d.year === prevYear && d.quarter === quarter);
+                        const currentLeads = data.leadsData.filter(d => d.year === currentYear && d.quarter === quarter);
+                        const prevLeads = data.leadsData.filter(d => d.year === prevYear && d.quarter === quarter);
+                        
+                        const currentSessions = currentData.reduce((sum, d) => sum + (d.sessions || 0), 0);
+                        const prevSessions = prevData.reduce((sum, d) => sum + (d.sessions || 0), 0);
+                        const currentImpressions = currentSocial.reduce((sum, d) => sum + (d.impressions || 0), 0);
+                        const prevImpressions = prevSocial.reduce((sum, d) => sum + (d.impressions || 0), 0);
+                        const currentNewLeads = currentLeads.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0);
+                        const currentQualified = currentLeads.reduce((sum, d) => sum + (d.marketingQualified || 0), 0);
+                        const prevNewLeads = prevLeads.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0);
+                        const prevQualified = prevLeads.reduce((sum, d) => sum + (d.marketingQualified || 0), 0);
+                        
+                        periods.push({
+                          period: `${quarter} ${prevYear}`,
+                          sessions: prevSessions,
+                          socialImpressions: prevImpressions,
+                          conversionRate: prevNewLeads > 0 ? (prevQualified / prevNewLeads) * 100 : 0
+                        });
+                        periods.push({
+                          period: `${quarter} ${currentYear}`,
+                          sessions: currentSessions,
+                          socialImpressions: currentImpressions,
+                          conversionRate: currentNewLeads > 0 ? (currentQualified / currentNewLeads) * 100 : 0
+                        });
+                      }
+                      
+                      return periods;
+                    } else {
+                      // Default quarterly view
+                      return getQuarterlyChartData();
+                    }
+                  })()}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis dataKey="period" tick={{ fontSize: 12 }} />
                     <YAxis yAxisId="left" tick={{ fontSize: 12 }} />
