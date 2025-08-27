@@ -6,11 +6,6 @@ import {
   Bar,
   AreaChart,
   Area,
-  RadarChart,
-  Radar,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -40,9 +35,7 @@ import {
   Settings,
   Eye,
   MousePointer,
-  ArrowRight,
   Upload,
-  FileText,
   Database
 } from 'lucide-react';
 import { dataService } from '../services/dataService';
@@ -379,7 +372,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
     if (!data) return [];
     
     // Get last 5 quarters dynamically
-    const quarters = [];
+    const quarters: string[] = [];
     let year = selectedYear;
     let quarter = selectedPeriod === 'Year' ? 4 : parseInt(selectedPeriod.substring(1));
     
@@ -444,7 +437,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
     if (!data) return [];
     
     // Get last 5 quarters of actual data
-    const quarters = [];
+    const quarters: { q: string; y: number }[] = [];
     let year = selectedYear;
     let quarter = selectedPeriod === 'Year' ? 4 : parseInt(selectedPeriod.substring(1));
     
@@ -1299,7 +1292,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                             source,
                             sessions,
                             percent: percentage.toFixed(1),
-                            trend: trend.toFixed(1),
+                            trend: parseFloat(trend.toFixed(1)),
                             status
                           };
                         });
@@ -1313,7 +1306,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                             source: 'No data available',
                             sessions: 0,
                             percent: '0.0',
-                            trend: '0.0',
+                            trend: 0,
                             status: 'N/A'
                           }];
                         }
@@ -1351,7 +1344,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                           <td className="px-6 py-4 text-sm">
                             <span className={`flex items-center gap-1 ${row.trend > 0 ? 'text-green-600' : 'text-red-600'}`}>
                               {row.trend > 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                              {Math.abs(row.trend)}%
+                              {Math.abs(row.trend).toFixed(1)}%
                             </span>
                           </td>
                           <td className="px-6 py-4">
@@ -1827,7 +1820,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                         
                         // Group by platform and aggregate
                         const platformData = currentSocial.reduce((acc, item) => {
-                          const platform = item.platform || 'Other';
+                          const platform = item.channel || 'Other';
                           if (!acc[platform]) {
                             acc[platform] = {
                               impressions: 0,
@@ -2082,9 +2075,9 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                     
                     return emailData.map(d => ({
                       month: d.monthName.slice(0, 3),
-                      openRate: d.emailsSent > 0 ? ((d.uniqueOpens / d.emailsSent) * 100).toFixed(1) : 0,
-                      clickRate: d.emailsSent > 0 ? ((d.uniqueClicks / d.emailsSent) * 100).toFixed(1) : 0,
-                      convRate: d.uniqueClicks > 0 ? ((d.uniqueClicks * 0.25) / d.emailsSent * 100).toFixed(1) : 0
+                      openRate: (d.emailsSent || 0) > 0 ? (((d.uniqueOpens || 0) / (d.emailsSent || 1)) * 100).toFixed(1) : 0,
+                      clickRate: (d.emailsSent || 0) > 0 ? (((d.uniqueClicks || 0) / (d.emailsSent || 1)) * 100).toFixed(1) : 0,
+                      convRate: (d.uniqueClicks || 0) > 0 ? (((d.uniqueClicks || 0) * 0.25) / (d.emailsSent || 1) * 100).toFixed(1) : 0
                     }));
                   })()}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -2364,14 +2357,14 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   const totalMentions = sovData.reduce((sum, d) => sum + (d.mediaMentionVolume || 0), 0);
                   const totalReach = sovData.reduce((sum, d) => sum + (d.mediaReachImpressions || 0), 0);
                   const socialMentions = sovData.reduce((sum, d) => sum + (d.socialMentions || 0), 0);
-                  const competitor1Mentions = sovData.reduce((sum, d) => sum + (d.competitor1Mentions || 0), 0);
-                  const competitor2Mentions = sovData.reduce((sum, d) => sum + (d.competitor2Mentions || 0), 0);
+                  // const competitor1Mentions = sovData.reduce((sum, d) => sum + (d.competitor1Mentions || 0), 0);
+                  // const competitor2Mentions = sovData.reduce((sum, d) => sum + (d.competitor2Mentions || 0), 0);
                   
                   // Calculate Share of Voice percentage
-                  const totalCompetitiveMentions = totalMentions + competitor1Mentions + competitor2Mentions;
-                  const shareOfVoice = totalCompetitiveMentions > 0 
-                    ? ((totalMentions / totalCompetitiveMentions) * 100).toFixed(1) 
-                    : 0;
+                  // const totalCompetitiveMentions = totalMentions + competitor1Mentions + competitor2Mentions;
+                  // const shareOfVoice = totalCompetitiveMentions > 0 
+                  //   ? ((totalMentions / totalCompetitiveMentions) * 100).toFixed(1) 
+                  //   : 0;
                   
                   // Calculate previous period for comparison
                   let previousQuarter, previousYear;
@@ -2913,14 +2906,15 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   const prevSOVPercent = prevTotalCompetitiveMentions > 0 ? (prevOurMediaMentions / prevTotalCompetitiveMentions) * 100 : 0;
                   const sovDiff = currentSOVPercent - prevSOVPercent;
                   
-                  return [
+                  const metrics = [
                     { title: 'Website Performance YoY', current: currentSessions, previous: prevSessions, change: sessionsChange, diff: currentSessions - prevSessions, unit: 'sessions' },
                     { title: 'Social Media Reach YoY', current: currentImpressions, previous: prevImpressions, change: impressionsChange, diff: currentImpressions - prevImpressions, unit: 'impressions' },
                     { title: 'Email Engagement YoY', current: currentOpenRate, previous: prevOpenRate, change: openRateDiff > 0 ? (openRateDiff / prevOpenRate * 100) : 0, diff: openRateDiff, unit: '% open rate', isPercent: true },
                     { title: 'Lead Generation YoY', current: currentNewLeads, previous: prevNewLeads, change: leadsChange, diff: currentNewLeads - prevNewLeads, unit: 'leads' },
                     { title: 'Share of Voice YoY', current: currentSOVPercent, previous: prevSOVPercent, change: sovDiff > 0 ? (sovDiff / prevSOVPercent * 100) : 0, diff: sovDiff, unit: '% market share', isPercent: true }
                   ];
-                })().map((metric, index) => (
+                
+                  return metrics.map((metric, index) => (
                   <div key={index} className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-xl">
                     <h4 className="text-sm font-semibold text-gray-600 mb-4">{metric.title}</h4>
                     <div className="flex justify-between items-end mb-3">
@@ -2944,7 +2938,8 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                       </span>
                     </div>
                   </div>
-                ))}
+                  ));
+                })()}
               </div>
 
               {/* YoY Trend Chart */}

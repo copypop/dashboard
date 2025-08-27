@@ -30,6 +30,7 @@ export class DataProcessor {
             socialData: this.parseSocialData(workbook),
             emailData: this.parseEmailData(workbook),
             leadsData: this.parseLeadsData(workbook),
+            shareOfVoiceData: [], // Add empty array for now
             targets: this.parseTargets(workbook),
             notes: this.parseNotes(workbook)
           };

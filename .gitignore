@@ -38,3 +38,5 @@ dist-ssr
 *.cert
 password.txt
 passwords.txt
+
+.vercel

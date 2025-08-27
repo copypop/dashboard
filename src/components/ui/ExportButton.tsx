@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, FileText, FileCode, X } from 'lucide-react';
+import { Download, FileText, FileCode } from 'lucide-react';
 import { exportDashboard } from '../../utils/exportUtils';
 
 interface ExportButtonProps {
