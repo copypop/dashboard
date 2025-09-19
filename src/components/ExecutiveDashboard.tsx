@@ -2778,23 +2778,86 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                     <div className="text-5xl font-bold">
                       {(() => {
                         const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
-                        const sovData = data.shareOfVoiceData.filter(d => 
-                          d.year === selectedYear && 
+                        const sovData = data.shareOfVoiceData.filter(d =>
+                          d.year === selectedYear &&
                           (currentQuarter ? d.quarter === currentQuarter : true)
                         );
+
                         const totalMentions = sovData.reduce((sum, d) => sum + (d.mediaMentionVolume || 0), 0);
                         const competitor1Mentions = sovData.reduce((sum, d) => sum + (d.competitor1Mentions || 0), 0);
                         const competitor2Mentions = sovData.reduce((sum, d) => sum + (d.competitor2Mentions || 0), 0);
                         const totalCompetitiveMentions = totalMentions + competitor1Mentions + competitor2Mentions;
-                        const shareOfVoice = totalCompetitiveMentions > 0 
-                          ? ((totalMentions / totalCompetitiveMentions) * 100).toFixed(1) 
+                        const shareOfVoice = totalCompetitiveMentions > 0
+                          ? ((totalMentions / totalCompetitiveMentions) * 100)
                           : 0;
-                        return shareOfVoice;
+
+                        return shareOfVoice.toFixed(1);
                       })()}%
                     </div>
                     <p className="mt-2 opacity-80">of total industry mentions</p>
+
+                    {/* Comparison indicator */}
+                    {compareEnabled && (() => {
+                      const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
+                      const sovData = data.shareOfVoiceData.filter(d =>
+                        d.year === selectedYear &&
+                        (currentQuarter ? d.quarter === currentQuarter : true)
+                      );
+
+                      // Calculate previous period data
+                      let previousQuarter, previousYear;
+                      if (compareType === 'prev_year') {
+                        previousQuarter = currentQuarter;
+                        previousYear = selectedYear - 1;
+                      } else {
+                        if (currentQuarter) {
+                          const quarterNum = parseInt(currentQuarter.replace('Q', ''));
+                          if (quarterNum === 1) {
+                            previousQuarter = 'Q4';
+                            previousYear = selectedYear - 1;
+                          } else {
+                            previousQuarter = `Q${quarterNum - 1}`;
+                            previousYear = selectedYear;
+                          }
+                        } else {
+                          previousQuarter = null;
+                          previousYear = selectedYear - 1;
+                        }
+                      }
+
+                      const prevSovData = data.shareOfVoiceData.filter(d =>
+                        d.year === previousYear &&
+                        (previousQuarter ? d.quarter === previousQuarter : true)
+                      );
+
+                      const currentTotalMentions = sovData.reduce((sum, d) => sum + (d.mediaMentionVolume || 0), 0);
+                      const currentComp1Mentions = sovData.reduce((sum, d) => sum + (d.competitor1Mentions || 0), 0);
+                      const currentComp2Mentions = sovData.reduce((sum, d) => sum + (d.competitor2Mentions || 0), 0);
+                      const currentTotalAll = currentTotalMentions + currentComp1Mentions + currentComp2Mentions;
+                      const currentSov = currentTotalAll > 0 ? ((currentTotalMentions / currentTotalAll) * 100) : 0;
+
+                      const prevTotalMentions = prevSovData.reduce((sum, d) => sum + (d.mediaMentionVolume || 0), 0);
+                      const prevComp1Mentions = prevSovData.reduce((sum, d) => sum + (d.competitor1Mentions || 0), 0);
+                      const prevComp2Mentions = prevSovData.reduce((sum, d) => sum + (d.competitor2Mentions || 0), 0);
+                      const prevTotalAll = prevTotalMentions + prevComp1Mentions + prevComp2Mentions;
+                      const prevSov = prevTotalAll > 0 ? ((prevTotalMentions / prevTotalAll) * 100) : 0;
+
+                      const sovChange = currentSov - prevSov;
+
+                      return (
+                        <div className="mt-3 flex items-center gap-2">
+                          <div className={`flex items-center gap-1 text-sm ${sovChange > 0 ? 'text-green-200' : sovChange < 0 ? 'text-red-200' : 'text-gray-200'}`}>
+                            {sovChange > 0 ? <TrendingUp className="h-4 w-4" /> : sovChange < 0 ? <TrendingDown className="h-4 w-4" /> : <span className="w-4 h-4" />}
+                            {sovChange !== 0 ? `${sovChange > 0 ? '+' : ''}${sovChange.toFixed(1)}%` : '0.0%'}
+                          </div>
+                          <span className="text-sm opacity-70">
+                            Previous: {prevSov.toFixed(1)}%
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
-                  <InfoTooltip 
+                  <InfoTooltip
                     title="Share of Voice"
                     description="Your brand's percentage of total media mentions compared to competitors"
                     calculation="(Your Mentions ÷ Total Industry Mentions) × 100"
@@ -2807,27 +2870,87 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
 
               {/* Competitor Comparison Chart */}
               <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6">Competitor Comparison</h3>
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">Competitor Comparison</h3>
+                  {compareEnabled && (
+                    <span className="text-sm text-gray-600">
+                      Current vs {compareType === 'prev_year' ? 'Previous Year' : 'Previous Quarter'}
+                    </span>
+                  )}
+                </div>
                 <ResponsiveContainer width="100%" height={400}>
                   <BarChart data={(() => {
                     const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
-                    const sovData = data.shareOfVoiceData.filter(d => 
-                      d.year === selectedYear && 
+                    const sovData = data.shareOfVoiceData.filter(d =>
+                      d.year === selectedYear &&
                       (currentQuarter ? d.quarter === currentQuarter : true)
                     );
-                    
-                    // Group by month for better visualization
-                    const monthlyData = sovData.map(d => ({
-                      month: d.monthName,
-                      'CAAT': d.mediaMentionVolume || 0,
-                      'Competitor 1': d.competitor1Mentions || 0,
-                      'Competitor 2': d.competitor2Mentions || 0
-                    }));
-                    
-                    return monthlyData;
+
+                    let chartData;
+                    if (compareEnabled && compareType) {
+                      // Calculate previous period data
+                      let previousQuarter, previousYear;
+                      if (compareType === 'prev_year') {
+                        previousQuarter = currentQuarter;
+                        previousYear = selectedYear - 1;
+                      } else {
+                        if (currentQuarter) {
+                          const quarterNum = parseInt(currentQuarter.replace('Q', ''));
+                          if (quarterNum === 1) {
+                            previousQuarter = 'Q4';
+                            previousYear = selectedYear - 1;
+                          } else {
+                            previousQuarter = `Q${quarterNum - 1}`;
+                            previousYear = selectedYear;
+                          }
+                        } else {
+                          previousQuarter = null;
+                          previousYear = selectedYear - 1;
+                        }
+                      }
+
+                      const prevSovData = data.shareOfVoiceData.filter(d =>
+                        d.year === previousYear &&
+                        (previousQuarter ? d.quarter === previousQuarter : true)
+                      );
+
+                      // Aggregate data for comparison view
+                      const currentTotalMentions = sovData.reduce((sum, d) => sum + (d.mediaMentionVolume || 0), 0);
+                      const currentComp1Mentions = sovData.reduce((sum, d) => sum + (d.competitor1Mentions || 0), 0);
+                      const currentComp2Mentions = sovData.reduce((sum, d) => sum + (d.competitor2Mentions || 0), 0);
+
+                      const prevTotalMentions = prevSovData.reduce((sum, d) => sum + (d.mediaMentionVolume || 0), 0);
+                      const prevComp1Mentions = prevSovData.reduce((sum, d) => sum + (d.competitor1Mentions || 0), 0);
+                      const prevComp2Mentions = prevSovData.reduce((sum, d) => sum + (d.competitor2Mentions || 0), 0);
+
+                      chartData = [
+                        {
+                          period: 'Current',
+                          'CAAT': currentTotalMentions,
+                          'Competitor 1': currentComp1Mentions,
+                          'Competitor 2': currentComp2Mentions
+                        },
+                        {
+                          period: 'Previous',
+                          'CAAT': prevTotalMentions,
+                          'Competitor 1': prevComp1Mentions,
+                          'Competitor 2': prevComp2Mentions
+                        }
+                      ];
+                    } else {
+                      // Original monthly data view
+                      chartData = sovData.map(d => ({
+                        month: d.monthName,
+                        'CAAT': d.mediaMentionVolume || 0,
+                        'Competitor 1': d.competitor1Mentions || 0,
+                        'Competitor 2': d.competitor2Mentions || 0
+                      }));
+                    }
+
+                    return chartData;
                   })()}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis dataKey="month" />
+                    <XAxis dataKey={compareEnabled ? "period" : "month"} />
                     <YAxis />
                     <Tooltip />
                     <Legend />
@@ -2858,36 +2981,84 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                     <tbody className="divide-y divide-gray-200">
                       {(() => {
                         const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
-                        const sovData = data.shareOfVoiceData.filter(d => 
-                          d.year === selectedYear && 
+                        const sovData = data.shareOfVoiceData.filter(d =>
+                          d.year === selectedYear &&
                           (currentQuarter ? d.quarter === currentQuarter : true)
                         );
-                        
+
+                        // Calculate previous period data if comparison is enabled
+                        let previousSovData: any[] = [];
+                        if (compareEnabled && compareType) {
+                          let previousQuarter, previousYear;
+                          if (compareType === 'prev_year') {
+                            previousQuarter = currentQuarter;
+                            previousYear = selectedYear - 1;
+                          } else {
+                            if (currentQuarter) {
+                              const quarterNum = parseInt(currentQuarter.replace('Q', ''));
+                              if (quarterNum === 1) {
+                                previousQuarter = 'Q4';
+                                previousYear = selectedYear - 1;
+                              } else {
+                                previousQuarter = `Q${quarterNum - 1}`;
+                                previousYear = selectedYear;
+                              }
+                            } else {
+                              previousQuarter = null;
+                              previousYear = selectedYear - 1;
+                            }
+                          }
+
+                          previousSovData = data.shareOfVoiceData.filter(d =>
+                            d.year === previousYear &&
+                            (previousQuarter ? d.quarter === previousQuarter : true)
+                          );
+                        }
+
                         const totalMentions = sovData.reduce((sum, d) => sum + (d.mediaMentionVolume || 0), 0);
                         const competitor1Mentions = sovData.reduce((sum, d) => sum + (d.competitor1Mentions || 0), 0);
                         const competitor2Mentions = sovData.reduce((sum, d) => sum + (d.competitor2Mentions || 0), 0);
                         const totalAll = totalMentions + competitor1Mentions + competitor2Mentions;
-                        
+
+                        // Calculate previous period totals for comparison
+                        const prevTotalMentions = previousSovData.reduce((sum, d) => sum + (d.mediaMentionVolume || 0), 0);
+                        const prevCompetitor1Mentions = previousSovData.reduce((sum, d) => sum + (d.competitor1Mentions || 0), 0);
+                        const prevCompetitor2Mentions = previousSovData.reduce((sum, d) => sum + (d.competitor2Mentions || 0), 0);
+                        const prevTotalAll = prevTotalMentions + prevCompetitor1Mentions + prevCompetitor2Mentions;
+
+                        // Calculate share of voice changes
+                        const currentCaatSov = totalAll > 0 ? (totalMentions / totalAll * 100) : 0;
+                        const prevCaatSov = prevTotalAll > 0 ? (prevTotalMentions / prevTotalAll * 100) : 0;
+                        const caatSovChange = compareEnabled ? currentCaatSov - prevCaatSov : 0;
+
+                        const currentComp1Sov = totalAll > 0 ? (competitor1Mentions / totalAll * 100) : 0;
+                        const prevComp1Sov = prevTotalAll > 0 ? (prevCompetitor1Mentions / prevTotalAll * 100) : 0;
+                        const comp1SovChange = compareEnabled ? currentComp1Sov - prevComp1Sov : 0;
+
+                        const currentComp2Sov = totalAll > 0 ? (competitor2Mentions / totalAll * 100) : 0;
+                        const prevComp2Sov = prevTotalAll > 0 ? (prevCompetitor2Mentions / prevTotalAll * 100) : 0;
+                        const comp2SovChange = compareEnabled ? currentComp2Sov - prevComp2Sov : 0;
+
                         const brands = [
-                          { 
-                            name: 'CAAT Pension Plan', 
+                          {
+                            name: 'CAAT Pension Plan',
                             mentions: totalMentions,
-                            sov: totalAll > 0 ? (totalMentions / totalAll * 100) : 0,
-                            change: 2.3,
+                            sov: currentCaatSov,
+                            change: caatSovChange,
                             isUs: true
                           },
-                          { 
-                            name: 'Competitor 1', 
+                          {
+                            name: 'Competitor 1',
                             mentions: competitor1Mentions,
-                            sov: totalAll > 0 ? (competitor1Mentions / totalAll * 100) : 0,
-                            change: -1.2,
+                            sov: currentComp1Sov,
+                            change: comp1SovChange,
                             isUs: false
                           },
-                          { 
-                            name: 'Competitor 2', 
+                          {
+                            name: 'Competitor 2',
                             mentions: competitor2Mentions,
-                            sov: totalAll > 0 ? (competitor2Mentions / totalAll * 100) : 0,
-                            change: -0.8,
+                            sov: currentComp2Sov,
+                            change: comp2SovChange,
                             isUs: false
                           }
                         ].sort((a, b) => b.mentions - a.mentions);
@@ -2926,10 +3097,14 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                               </div>
                             </td>
                             <td className="px-6 py-4">
-                              <div className={`flex items-center gap-1 text-sm ${brand.change > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                {brand.change > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                                {Math.abs(brand.change)}%
-                              </div>
+                              {compareEnabled ? (
+                                <div className={`flex items-center gap-1 text-sm ${brand.change > 0 ? 'text-green-600' : brand.change < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                                  {brand.change > 0 ? <TrendingUp className="h-4 w-4" /> : brand.change < 0 ? <TrendingDown className="h-4 w-4" /> : <span className="w-4 h-4" />}
+                                  {brand.change !== 0 ? `${brand.change > 0 ? '+' : ''}${brand.change.toFixed(1)}%` : '0.0%'}
+                                </div>
+                              ) : (
+                                <span className="text-sm text-gray-400">-</span>
+                              )}
                             </td>
                             <td className="px-6 py-4">
                               <span className={`px-2 py-1 text-xs font-medium rounded-md ${

@@ -21,7 +21,8 @@ A comprehensive, real-time digital marketing analytics dashboard for CAAT Pensio
 - **Website Analytics**: Sessions, pageviews, bounce rates, traffic sources
 - **Social Media**: Platform metrics, engagement rates, impressions
 - **Email Marketing**: Campaign performance, open rates, click rates
-- **Leads & Pipeline**: Funnel visualization, conversion tracking
+- **Leads & Pipeline**: Funnel visualization, conversion tracking with period comparisons
+- **Share of Voice**: Market position ranking, competitor comparison, SOV percentage with trend analysis
 
 ## 📋 Prerequisites
 
@@ -64,6 +65,7 @@ Your Excel file should contain the following sheets:
 - **Social_Data**: Social media performance
 - **Email_Data**: Email campaign metrics
 - **Leads_Data**: Lead generation metrics
+- **ShareOfVoice_Data**: Media mentions and competitor analysis
 - **Notes**: Important notes and context
 
 ## 🎯 Usage
@@ -71,8 +73,28 @@ Your Excel file should contain the following sheets:
 1. **Upload Data**: Click the upload area and select your Excel file
 2. **Select Period**: Use the period selector to choose quarter and year
 3. **Navigate Tabs**: Explore different sections (Overview, Website, Traffic, etc.)
-4. **View Insights**: Check the AI Insights panel for recommendations
-5. **Compare Periods**: Enable comparison mode to analyze trends
+4. **Compare Periods**: Enable comparison mode to analyze period-over-period trends
+5. **View Trends**: Check trend indicators and previous period comparisons in all tabs
+
+### 📊 Comparison Features
+
+The dashboard now includes comprehensive period-over-period comparison functionality:
+
+#### **Leads & Pipeline Tab**
+- **Lead Generation Funnel**: Shows current vs previous period metrics with trend indicators
+- **Conversion Rates**: Period-over-period comparison for all conversion metrics
+- **Pipeline Summary**: Trend analysis for pipeline value, opportunities, and sales metrics
+
+#### **Share of Voice Tab**
+- **Market Position Ranking**: Dynamic period-over-period share of voice changes
+- **Competitor Comparison Chart**: Side-by-side current vs previous period comparison
+- **SOV Percentage Card**: Trend indicators and previous period display
+
+#### **Comparison Controls**
+- Toggle comparison mode on/off globally
+- Choose between "Previous Quarter" or "Previous Year" comparison
+- Automatic calculation of appropriate previous periods
+- Color-coded trend indicators (green=up, red=down, gray=neutral)
 
 ## 🏗️ Tech Stack
 
