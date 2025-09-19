@@ -5,11 +5,9 @@ import { WebsiteChart } from './charts/WebsiteChart';
 import { TrafficSourcesChart } from './charts/TrafficSourcesChart';
 import { SocialMediaChart } from './charts/SocialMediaChart';
 import { EmailChart } from './charts/EmailChart';
-import { InsightsPanel } from './InsightsPanel';
 import { PeriodSelector } from './PeriodSelector';
 import { useDashboardStore } from '../store/dashboardStore';
 import { DataProcessor } from '../utils/dataProcessor';
-import { generateInsights } from '../services/insightService';
 import { cn } from '@/lib/utils';
 import { 
   Users, 
@@ -20,12 +18,10 @@ import {
 export const Dashboard: React.FC = () => {
   const {
     data,
-    insights,
     loading,
     error,
     selectedPeriod,
     setData,
-    setInsights,
     setLoading,
     setError,
     setSelectedPeriod
@@ -41,9 +37,6 @@ export const Dashboard: React.FC = () => {
       const dashboardData = await DataProcessor.parseExcelFile(file);
       setData(dashboardData);
       
-      // Generate insights
-      const generatedInsights = await generateInsights(dashboardData, selectedPeriod);
-      setInsights(generatedInsights);
       
       // Update selected period to match data
       if (dashboardData.config) {
@@ -153,7 +146,7 @@ export const Dashboard: React.FC = () => {
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto">
           <div className="flex space-x-1 overflow-x-auto">
-            {['overview', 'website', 'traffic', 'social', 'email', 'leads', 'insights'].map(tab => (
+            {['overview', 'website', 'traffic', 'social', 'email', 'leads'].map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -215,10 +208,6 @@ export const Dashboard: React.FC = () => {
               <TrafficSourcesChart data={data.trafficSources} period={selectedPeriod} />
             </div>
 
-            {/* Insights */}
-            {insights.length > 0 && (
-              <InsightsPanel insights={insights.slice(0, 3)} />
-            )}
           </div>
         )}
 
@@ -246,9 +235,6 @@ export const Dashboard: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'insights' && (
-          <InsightsPanel insights={insights} showAll />
-        )}
       </div>
     </div>
   );

@@ -1,17 +1,15 @@
 import { create } from 'zustand';
-import type { DashboardData, Insight, Period } from '../types/dashboard';
+import type { DashboardData, Period } from '../types/dashboard';
 
 interface DashboardState {
   data: DashboardData | null;
-  insights: Insight[];
   loading: boolean;
   error: string | null;
   selectedPeriod: Period;
   comparisonEnabled: boolean;
   comparisonPeriod: Period | null;
-  
+
   setData: (data: DashboardData) => void;
-  setInsights: (insights: Insight[]) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   setSelectedPeriod: (period: Period) => void;
@@ -22,7 +20,6 @@ interface DashboardState {
 
 const initialState = {
   data: null,
-  insights: [],
   loading: false,
   error: null,
   selectedPeriod: {
@@ -35,9 +32,8 @@ const initialState = {
 
 export const useDashboardStore = create<DashboardState>((set) => ({
   ...initialState,
-  
+
   setData: (data) => set({ data, error: null }),
-  setInsights: (insights) => set({ insights }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error, loading: false }),
   setSelectedPeriod: (period) => set({ selectedPeriod: period }),

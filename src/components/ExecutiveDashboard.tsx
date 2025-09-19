@@ -14,10 +14,10 @@ import {
   ResponsiveContainer,
   ComposedChart
 } from 'recharts';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  ArrowUpRight, 
+import {
+  TrendingUp,
+  TrendingDown,
+  ArrowUpRight,
   ArrowDownRight,
   Users,
   Globe,
@@ -26,7 +26,6 @@ import {
   Target,
   BarChart3,
   Activity,
-  CheckCircle,
   AlertCircle,
   Info,
   ChevronRight,
@@ -2938,26 +2937,6 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                 </div>
               </div>
 
-              {/* Quarterly Insights */}
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-xl">
-                <div className="flex items-center gap-3 mb-4">
-                  <BarChart3 className="h-5 w-5 text-[#005C84]" />
-                  <h3 className="text-lg font-semibold text-gray-900">Quarterly Trend Analysis</h3>
-                </div>
-                <ul className="space-y-3">
-                  {[
-                    { text: 'Consistent Growth: Q1 2025 outperforms all 2024 quarters across every key metric.', icon: CheckCircle, color: 'text-green-600' },
-                    { text: 'Accelerating Lead Gen: 64% QoQ growth in leads indicates successful campaign optimization.', icon: TrendingUp, color: 'text-blue-600' },
-                    { text: 'Conversion Excellence: 0.93% conversion rate in Q1 2025 is the highest in 5 quarters.', icon: Target, color: 'text-purple-600' },
-                    { text: 'Seasonal Patterns: Q3 typically strongest, but Q1 2025 breaks pattern with record performance.', icon: Activity, color: 'text-orange-600' }
-                  ].map((insight, index) => (
-                    <li key={index} className="flex gap-3">
-                      <insight.icon className={`h-5 w-5 ${insight.color} flex-shrink-0 mt-0.5`} />
-                      <span className="text-gray-700">{insight.text}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
             </div>
           )}
 
@@ -3119,26 +3098,6 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                 </ResponsiveContainer>
               </div>
 
-              {/* YoY Insights */}
-              <div className="bg-gradient-to-br from-blue-50 to-green-50 p-6 rounded-xl">
-                <div className="flex items-center gap-3 mb-4">
-                  <Activity className="h-5 w-5 text-[#005C84]" />
-                  <h3 className="text-lg font-semibold text-gray-900">Year-over-Year Insights</h3>
-                </div>
-                <ul className="space-y-3">
-                  {[
-                    'Sustained Growth: All channels show positive YoY growth, with social media leading at 27.6%.',
-                    'Quality Improvement: Email open rates improved 17.9% YoY while maintaining list size.',
-                    'ROI Enhancement: Marketing efficiency improved 33% YoY (2.4x to 3.2x ROI).',
-                    '2025 Projection: At current growth rate, 2025 will exceed 2024 performance by 25-30%.'
-                  ].map((insight, index) => (
-                    <li key={index} className="flex gap-3">
-                      <ChevronRight className="h-5 w-5 text-[#55A51C] flex-shrink-0 mt-0.5" />
-                      <span className="text-gray-700">{insight}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
             </div>
           )}
         </div>
