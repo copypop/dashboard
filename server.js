@@ -11,7 +11,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3001;
+const PORT = 3003;
 
 // Excel file path - UPDATE THIS TO YOUR EXCEL FILE LOCATION
 const EXCEL_FILE_PATH = path.join(path.dirname(__dirname), 'CAAT_Dashboard_Data_2025.xlsx');

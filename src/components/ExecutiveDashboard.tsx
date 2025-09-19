@@ -28,7 +28,6 @@ import {
   Activity,
   AlertCircle,
   Info,
-  ChevronRight,
   ChevronDown,
   RefreshCw,
   Settings,
@@ -1112,33 +1111,6 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                 </div>
               </div>
 
-              {/* Executive Insights & Recommendations */}
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-xl">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-yellow-100 rounded-lg">
-                    <Info className="h-5 w-5 text-yellow-600" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900">Executive Insights & Recommendations</h3>
-                </div>
-                <ul className="space-y-3">
-                  {[
-                    { title: 'Digital Growth Momentum', desc: 'Q1 2025 shows 20.8% YoY growth in digital reach, outpacing 2024\'s quarterly average of 71.5K by 22%.' },
-                    { title: 'Quarterly Progression', desc: 'Consistent quarter-over-quarter improvement since Q2 2024, with Q1 2025 marking the strongest performance.' },
-                    { title: 'Channel Evolution', desc: 'Social media engagement improved from 4.2% (Q1 2024) to 5.38% (Q1 2025), a 28% YoY increase.' },
-                    { title: 'Email Excellence Sustained', desc: 'Open rates improved from 58% (Q1 2024) to 68.4% (Q1 2025), maintaining leadership position.' },
-                    { title: 'Lead Generation Breakthrough', desc: '146 leads in Q1 2025 vs 92 in Q1 2024 represents 59% YoY growth.' },
-                    { title: 'Investment Returns', desc: 'Marketing ROI increased from 2.4x (Q1 2024) to 3.2x (Q1 2025), exceeding targets by 28%.' }
-                  ].map((insight, index) => (
-                    <li key={index} className="flex gap-3">
-                      <ChevronRight className="h-5 w-5 text-[#55A51C] flex-shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-semibold text-gray-900">{insight.title}:</span>{' '}
-                        <span className="text-gray-600">{insight.desc}</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
             </div>
           )}
 
