@@ -2202,70 +2202,169 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
           {/* Leads & Pipeline Tab */}
           {activeTab === 'leads' && data && (
             <div id="tab-content-leads" className="space-y-8 animate-fadeIn">
-              {/* Lead Funnel */}
-              <div className="bg-white rounded-xl border border-gray-200 p-8">
-                <h3 className="flex items-center text-lg font-semibold text-gray-900 mb-8">
-                  Lead Generation Funnel - {selectedPeriod} {selectedYear}
-                  <InfoTooltip 
-                    title="Lead Conversion Funnel"
-                    description="Visualizes how prospects move through your marketing funnel from initial interest to qualified opportunities."
-                    calculation="Stage-to-stage conversion rates"
-                    example="MQL = Marketing Qualified Lead, SAL = Sales Accepted Lead"
-                    icon="info"
-                    position="auto"
-                  />
-                </h3>
-                <div className="relative max-w-3xl mx-auto">
-                  {(() => {
-                    // Get actual data based on selected period
-                    const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
-                    const currentLeads = data.leadsData.filter(d => 
-                      d.year === selectedYear && 
-                      (currentQuarter ? d.quarter === currentQuarter : true)
-                    );
-                    
-                    // Aggregate the data
-                    const newProspects = currentLeads.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0);
-                    const marketingQualified = currentLeads.reduce((sum, d) => sum + (d.marketingQualified || 0), 0);
-                    const salesAccepted = currentLeads.reduce((sum, d) => sum + (d.salesAccepted || 0), 0);
-                    const opportunities = currentLeads.reduce((sum, d) => sum + (d.opportunities || 0), 0);
-                    
-                    // Calculate conversion rates
-                    const mqlRate = newProspects > 0 ? Math.round((marketingQualified / newProspects) * 100) : 0;
-                    const salRate = marketingQualified > 0 ? Math.round((salesAccepted / marketingQualified) * 100) : 0;
-                    const oppRate = salesAccepted > 0 ? Math.round((opportunities / salesAccepted) * 100) : 0;
-                    
-                    // Build funnel stages with actual data
-                    const stages = [
-                      { 
-                        stage: 'New Prospects', 
-                        value: newProspects, 
-                        color: 'bg-gradient-to-r from-blue-500 to-blue-600',
-                        width: 100,
-                        conversionRate: null
-                      },
-                      { 
-                        stage: 'Marketing Qualified Leads (MQL)', 
-                        value: marketingQualified, 
-                        color: 'bg-gradient-to-r from-indigo-500 to-indigo-600',
-                        width: 75,
-                        conversionRate: mqlRate
-                      },
-                      { 
-                        stage: 'Sales Accepted Leads (SAL)', 
-                        value: salesAccepted, 
-                        color: 'bg-gradient-to-r from-purple-500 to-purple-600',
-                        width: 50,
-                        conversionRate: salRate
-                      },
-                      { 
-                        stage: 'Opportunities', 
-                        value: opportunities, 
-                        color: 'bg-gradient-to-r from-pink-500 to-pink-600',
-                        width: 25,
-                        conversionRate: oppRate
-                      }
-                    ];
+              {(() => {
+                // Calculate current period data
+                const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
+                const currentLeads = data.leadsData.filter(d =>
+                  d.year === selectedYear &&
+                  (currentQuarter ? d.quarter === currentQuarter : true)
+                );
+
+                // Determine comparison period based on compareType
+                let previousQuarter, previousYear, previousPeriodLabel;
+
+                if (compareType === 'prev_year') {
+                  // Previous Year Same Quarter
+                  previousQuarter = currentQuarter;
+                  previousYear = selectedYear - 1;
+                  previousPeriodLabel = currentQuarter
+                    ? `${currentQuarter} ${previousYear}`
+                    : `${previousYear}`;
+                } else {
+                  // Previous Quarter (default)
+                  if (currentQuarter) {
+                    previousQuarter = currentQuarter === 'Q1' ? 'Q4' :
+                                     currentQuarter === 'Q2' ? 'Q1' :
+                                     currentQuarter === 'Q3' ? 'Q2' : 'Q3';
+                    previousYear = currentQuarter === 'Q1' ? selectedYear - 1 : selectedYear;
+                  } else {
+                    previousQuarter = null;
+                    previousYear = selectedYear - 1;
+                  }
+                  previousPeriodLabel = previousQuarter
+                    ? `${previousQuarter} ${previousYear}`
+                    : `${previousYear}`;
+                }
+
+                // Get previous period data
+                const previousLeads = data.leadsData.filter(d =>
+                  d.year === previousYear &&
+                  (previousQuarter ? d.quarter === previousQuarter : true)
+                );
+
+                // Calculate current period metrics
+                const currentMetrics = {
+                  newProspects: currentLeads.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0),
+                  marketingQualified: currentLeads.reduce((sum, d) => sum + (d.marketingQualified || 0), 0),
+                  salesAccepted: currentLeads.reduce((sum, d) => sum + (d.salesAccepted || 0), 0),
+                  opportunities: currentLeads.reduce((sum, d) => sum + (d.opportunities || 0), 0),
+                  pipelineValue: currentLeads.reduce((sum, d) => sum + (d.pipelineValue || 0), 0)
+                };
+
+                // Calculate previous period metrics
+                const previousMetrics = {
+                  newProspects: previousLeads.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0),
+                  marketingQualified: previousLeads.reduce((sum, d) => sum + (d.marketingQualified || 0), 0),
+                  salesAccepted: previousLeads.reduce((sum, d) => sum + (d.salesAccepted || 0), 0),
+                  opportunities: previousLeads.reduce((sum, d) => sum + (d.opportunities || 0), 0),
+                  pipelineValue: previousLeads.reduce((sum, d) => sum + (d.pipelineValue || 0), 0)
+                };
+
+                // Calculate trends
+                const trends = {
+                  newProspects: previousMetrics.newProspects > 0
+                    ? ((currentMetrics.newProspects - previousMetrics.newProspects) / previousMetrics.newProspects * 100)
+                    : 0,
+                  marketingQualified: previousMetrics.marketingQualified > 0
+                    ? ((currentMetrics.marketingQualified - previousMetrics.marketingQualified) / previousMetrics.marketingQualified * 100)
+                    : 0,
+                  salesAccepted: previousMetrics.salesAccepted > 0
+                    ? ((currentMetrics.salesAccepted - previousMetrics.salesAccepted) / previousMetrics.salesAccepted * 100)
+                    : 0,
+                  opportunities: previousMetrics.opportunities > 0
+                    ? ((currentMetrics.opportunities - previousMetrics.opportunities) / previousMetrics.opportunities * 100)
+                    : 0,
+                  pipelineValue: previousMetrics.pipelineValue > 0
+                    ? ((currentMetrics.pipelineValue - previousMetrics.pipelineValue) / previousMetrics.pipelineValue * 100)
+                    : 0
+                };
+
+                // Calculate conversion rates for current and previous periods
+                const currentConversions = {
+                  prospectToMql: currentMetrics.newProspects > 0 ? (currentMetrics.marketingQualified / currentMetrics.newProspects * 100) : 0,
+                  mqlToSal: currentMetrics.marketingQualified > 0 ? (currentMetrics.salesAccepted / currentMetrics.marketingQualified * 100) : 0,
+                  salToOpp: currentMetrics.salesAccepted > 0 ? (currentMetrics.opportunities / currentMetrics.salesAccepted * 100) : 0
+                };
+
+                const previousConversions = {
+                  prospectToMql: previousMetrics.newProspects > 0 ? (previousMetrics.marketingQualified / previousMetrics.newProspects * 100) : 0,
+                  mqlToSal: previousMetrics.marketingQualified > 0 ? (previousMetrics.salesAccepted / previousMetrics.marketingQualified * 100) : 0,
+                  salToOpp: previousMetrics.salesAccepted > 0 ? (previousMetrics.opportunities / previousMetrics.salesAccepted * 100) : 0
+                };
+
+                const conversionTrends = {
+                  prospectToMql: previousConversions.prospectToMql > 0
+                    ? (currentConversions.prospectToMql - previousConversions.prospectToMql)
+                    : 0,
+                  mqlToSal: previousConversions.mqlToSal > 0
+                    ? (currentConversions.mqlToSal - previousConversions.mqlToSal)
+                    : 0,
+                  salToOpp: previousConversions.salToOpp > 0
+                    ? (currentConversions.salToOpp - previousConversions.salToOpp)
+                    : 0
+                };
+
+                return (
+                  <>
+                    {/* Lead Funnel */}
+                    <div className="bg-white rounded-xl border border-gray-200 p-8">
+                      <h3 className="flex items-center text-lg font-semibold text-gray-900 mb-8">
+                        Lead Generation Funnel - {selectedPeriod} {selectedYear}
+                        <InfoTooltip
+                          title="Lead Conversion Funnel"
+                          description="Visualizes how prospects move through your marketing funnel from initial interest to qualified opportunities."
+                          calculation="Stage-to-stage conversion rates"
+                          example="MQL = Marketing Qualified Lead, SAL = Sales Accepted Lead"
+                          icon="info"
+                          position="auto"
+                        />
+                      </h3>
+                      <div className="relative max-w-3xl mx-auto">
+                        {(() => {
+                          // Calculate conversion rates
+                          const mqlRate = currentMetrics.newProspects > 0 ? Math.round((currentMetrics.marketingQualified / currentMetrics.newProspects) * 100) : 0;
+                          const salRate = currentMetrics.marketingQualified > 0 ? Math.round((currentMetrics.salesAccepted / currentMetrics.marketingQualified) * 100) : 0;
+                          const oppRate = currentMetrics.salesAccepted > 0 ? Math.round((currentMetrics.opportunities / currentMetrics.salesAccepted) * 100) : 0;
+
+                          // Build funnel stages with comparison data
+                          const stages = [
+                            {
+                              stage: 'New Prospects',
+                              value: currentMetrics.newProspects,
+                              previousValue: previousMetrics.newProspects,
+                              trend: trends.newProspects,
+                              color: 'bg-gradient-to-r from-blue-500 to-blue-600',
+                              width: 100,
+                              conversionRate: null
+                            },
+                            {
+                              stage: 'Marketing Qualified Leads (MQL)',
+                              value: currentMetrics.marketingQualified,
+                              previousValue: previousMetrics.marketingQualified,
+                              trend: trends.marketingQualified,
+                              color: 'bg-gradient-to-r from-indigo-500 to-indigo-600',
+                              width: 75,
+                              conversionRate: mqlRate
+                            },
+                            {
+                              stage: 'Sales Accepted Leads (SAL)',
+                              value: currentMetrics.salesAccepted,
+                              previousValue: previousMetrics.salesAccepted,
+                              trend: trends.salesAccepted,
+                              color: 'bg-gradient-to-r from-purple-500 to-purple-600',
+                              width: 50,
+                              conversionRate: salRate
+                            },
+                            {
+                              stage: 'Opportunities',
+                              value: currentMetrics.opportunities,
+                              previousValue: previousMetrics.opportunities,
+                              trend: trends.opportunities,
+                              color: 'bg-gradient-to-r from-pink-500 to-pink-600',
+                              width: 25,
+                              conversionRate: oppRate
+                            }
+                          ];
                     
                     return (
                       <div className="space-y-1">
@@ -2289,15 +2388,28 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                                   <div className="flex justify-between items-center">
                                     <div>
                                       <div className="text-sm font-medium text-white/90 mb-1">{stage.stage}</div>
-                                      <div className="text-3xl font-bold">{formatNumber(stage.value)}</div>
+                                      <div className="flex items-center gap-2">
+                                        <div className="text-3xl font-bold">{formatNumber(stage.value)}</div>
+                                        {stage.trend !== 0 && (
+                                          <div className={`flex items-center text-sm ${stage.trend > 0 ? 'text-green-200' : 'text-red-200'}`}>
+                                            {stage.trend > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                                            {Math.abs(stage.trend).toFixed(1)}%
+                                          </div>
+                                        )}
+                                      </div>
+                                      {compareEnabled && stage.previousValue > 0 && (
+                                        <div className="text-xs text-white/70 mt-1">
+                                          Previous: {formatNumber(stage.previousValue)}
+                                        </div>
+                                      )}
                                     </div>
                                     <div className="text-right">
                                       {index === 0 && (
                                         <div className="text-sm font-medium text-white/90">100%</div>
                                       )}
-                                      {index > 0 && newProspects > 0 && (
+                                      {index > 0 && currentMetrics.newProspects > 0 && (
                                         <div className="text-sm font-medium text-white/90">
-                                          {Math.round((stage.value / newProspects) * 100)}% of total
+                                          {Math.round((stage.value / currentMetrics.newProspects) * 100)}% of total
                                         </div>
                                       )}
                                     </div>
@@ -2322,21 +2434,60 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                           <div className="grid grid-cols-3 gap-4 text-center">
                             <div>
                               <div className="text-2xl font-bold text-gray-900">
-                                {newProspects > 0 ? Math.round((opportunities / newProspects) * 100) : 0}%
+                                {currentMetrics.newProspects > 0 ? Math.round((currentMetrics.opportunities / currentMetrics.newProspects) * 100) : 0}%
                               </div>
                               <div className="text-xs text-gray-500">Overall Conversion</div>
+                              {previousMetrics.newProspects > 0 && (
+                                <div className={`text-xs mt-1 flex items-center justify-center gap-1 ${
+                                  trends.opportunities > 0 ? 'text-green-600' : 'text-red-600'
+                                }`}>
+                                  {trends.opportunities > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                                  {Math.abs(trends.opportunities).toFixed(1)}% vs {previousPeriodLabel}
+                                </div>
+                              )}
+                              {compareEnabled && previousMetrics.newProspects > 0 && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  Previous: {previousMetrics.newProspects > 0 ? Math.round((previousMetrics.opportunities / previousMetrics.newProspects) * 100) : 0}%
+                                </div>
+                              )}
                             </div>
                             <div>
                               <div className="text-2xl font-bold text-green-600">
-                                {formatNumber(opportunities)}
+                                {formatNumber(currentMetrics.opportunities)}
                               </div>
                               <div className="text-xs text-gray-500">Total Opportunities</div>
+                              {trends.opportunities !== 0 && (
+                                <div className={`text-xs mt-1 flex items-center justify-center gap-1 ${
+                                  trends.opportunities > 0 ? 'text-green-600' : 'text-red-600'
+                                }`}>
+                                  {trends.opportunities > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                                  {Math.abs(trends.opportunities).toFixed(1)}% vs {previousPeriodLabel}
+                                </div>
+                              )}
+                              {compareEnabled && previousMetrics.opportunities > 0 && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  Previous: {formatNumber(previousMetrics.opportunities)}
+                                </div>
+                              )}
                             </div>
                             <div>
                               <div className="text-2xl font-bold text-blue-600">
-                                {formatNumber(newProspects)}
+                                {formatNumber(currentMetrics.newProspects)}
                               </div>
                               <div className="text-xs text-gray-500">Total Prospects</div>
+                              {trends.newProspects !== 0 && (
+                                <div className={`text-xs mt-1 flex items-center justify-center gap-1 ${
+                                  trends.newProspects > 0 ? 'text-green-600' : 'text-red-600'
+                                }`}>
+                                  {trends.newProspects > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                                  {Math.abs(trends.newProspects).toFixed(1)}% vs {previousPeriodLabel}
+                                </div>
+                              )}
+                              {compareEnabled && previousMetrics.newProspects > 0 && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  Previous: {formatNumber(previousMetrics.newProspects)}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -2344,105 +2495,160 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                     );
                   })()}
                 </div>
-              </div>
+                    </div>
 
-              {/* Pipeline Metrics */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                  <h4 className="text-base font-semibold text-gray-900 mb-4">Conversion Rates - {selectedPeriod} {selectedYear}</h4>
-                  <div className="space-y-3">
-                    {(() => {
-                      // Calculate conversion rates from actual data
-                      const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
-                      const currentLeads = data.leadsData.filter(d => 
-                        d.year === selectedYear && 
-                        (currentQuarter ? d.quarter === currentQuarter : true)
-                      );
+                    {/* Pipeline Metrics */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-white rounded-xl border border-gray-200 p-6">
+                        <h4 className="text-base font-semibold text-gray-900 mb-4">Conversion Rates - {selectedPeriod} {selectedYear}</h4>
+                        <div className="space-y-3">
+                          {(() => {
+                            const metrics = [
+                              {
+                                label: 'Prospect → MQL',
+                                value: Math.round(currentConversions.prospectToMql),
+                                previousValue: Math.round(previousConversions.prospectToMql),
+                                trend: conversionTrends.prospectToMql,
+                                target: 50
+                              },
+                              {
+                                label: 'MQL → SAL',
+                                value: Math.round(currentConversions.mqlToSal),
+                                previousValue: Math.round(previousConversions.mqlToSal),
+                                trend: conversionTrends.mqlToSal,
+                                target: 60
+                              },
+                              {
+                                label: 'SAL → Opportunity',
+                                value: Math.round(currentConversions.salToOpp),
+                                previousValue: Math.round(previousConversions.salToOpp),
+                                trend: conversionTrends.salToOpp,
+                                target: 50
+                              }
+                            ];
                       
-                      const newProspects = currentLeads.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0);
-                      const mql = currentLeads.reduce((sum, d) => sum + (d.marketingQualified || 0), 0);
-                      const sal = currentLeads.reduce((sum, d) => sum + (d.salesAccepted || 0), 0);
-                      const opps = currentLeads.reduce((sum, d) => sum + (d.opportunities || 0), 0);
-                      
-                      const metrics = [
-                        { 
-                          label: 'Prospect → MQL', 
-                          value: newProspects > 0 ? Math.round((mql / newProspects) * 100) : 0, 
-                          target: 50 
-                        },
-                        { 
-                          label: 'MQL → SAL', 
-                          value: mql > 0 ? Math.round((sal / mql) * 100) : 0, 
-                          target: 60 
-                        },
-                        { 
-                          label: 'SAL → Opportunity', 
-                          value: sal > 0 ? Math.round((opps / sal) * 100) : 0, 
-                          target: 50 
-                        }
-                      ];
-                      
-                      return metrics.map((metric, index) => (
-                      <div key={index}>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="text-gray-600">{metric.label}</span>
-                          <span className="font-semibold text-gray-900">{metric.value}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className={`h-2 rounded-full ${
-                              metric.value >= metric.target ? 'bg-green-500' : 'bg-yellow-500'
-                            }`}
-                            style={{ width: `${metric.value}%` }}
-                          />
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">Target: {metric.target}%</div>
-                      </div>
-                    ));
-                    })()}
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                  <h4 className="text-base font-semibold text-gray-900 mb-4">Pipeline Summary - {selectedPeriod} {selectedYear}</h4>
-                  <div className="space-y-4">
-                    {(() => {
-                      const currentQuarter = selectedPeriod === 'Year' ? null : selectedPeriod;
-                      const currentLeads = data.leadsData.filter(d => 
-                        d.year === selectedYear && 
-                        (currentQuarter ? d.quarter === currentQuarter : true)
-                      );
-                      
-                      const totalPipeline = currentLeads.reduce((sum, d) => sum + (d.pipelineValue || 0), 0);
-                      const totalOpps = currentLeads.reduce((sum, d) => sum + (d.opportunities || 0), 0);
-                      const avgDealSize = totalOpps > 0 ? totalPipeline / totalOpps : 0;
-                      
-                      return (
-                        <>
-                          <div className="text-center py-4">
-                            <div className="text-3xl font-bold text-[#005C84]">
-                              ${totalPipeline > 0 ? formatNumber(totalPipeline) : '0'}
-                            </div>
-                            <div className="text-sm text-gray-500 mt-1">Total Pipeline Value</div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="text-center p-3 bg-gray-50 rounded-lg">
-                              <div className="text-xl font-semibold text-gray-900">
-                                ${avgDealSize > 0 ? formatNumber(avgDealSize) : '0'}
+                            return metrics.map((metric, index) => (
+                              <div key={index}>
+                                <div className="flex justify-between text-sm mb-1">
+                                  <span className="text-gray-600">{metric.label}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-gray-900">{metric.value}%</span>
+                                    {metric.trend !== 0 && (
+                                      <div className={`flex items-center text-xs ${metric.trend > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        {metric.trend > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                                        {Math.abs(metric.trend).toFixed(1)}pp
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div
+                                    className={`h-2 rounded-full ${
+                                      metric.value >= metric.target ? 'bg-green-500' : 'bg-yellow-500'
+                                    }`}
+                                    style={{ width: `${Math.min(metric.value, 100)}%` }}
+                                  />
+                                </div>
+                                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                                  <span>Target: {metric.target}%</span>
+                                  {metric.trend !== 0 && (
+                                    <span className={metric.trend > 0 ? 'text-green-600' : 'text-red-600'}>
+                                      vs {previousPeriodLabel}
+                                    </span>
+                                  )}
+                                </div>
+                                {compareEnabled && metric.previousValue > 0 && (
+                                  <div className="text-xs text-gray-500 mt-1 pt-1 border-t">
+                                    Previous: {metric.previousValue}%
+                                  </div>
+                                )}
                               </div>
-                              <div className="text-xs text-gray-500">Avg Deal Size</div>
-                            </div>
-                            <div className="text-center p-3 bg-gray-50 rounded-lg">
-                              <div className="text-xl font-semibold text-gray-900">{totalOpps}</div>
-                              <div className="text-xs text-gray-500">Active Opportunities</div>
-                            </div>
-                          </div>
-                        </>
-                      );
+                            ));
                     })()}
                   </div>
                 </div>
-              </div>
+
+                      <div className="bg-white rounded-xl border border-gray-200 p-6">
+                        <h4 className="text-base font-semibold text-gray-900 mb-4">Pipeline Summary - {selectedPeriod} {selectedYear}</h4>
+                        <div className="space-y-4">
+                          {(() => {
+                            const avgDealSize = currentMetrics.opportunities > 0 ? currentMetrics.pipelineValue / currentMetrics.opportunities : 0;
+                            const prevAvgDealSize = previousMetrics.opportunities > 0 ? previousMetrics.pipelineValue / previousMetrics.opportunities : 0;
+                            const avgDealSizeTrend = prevAvgDealSize > 0 ? ((avgDealSize - prevAvgDealSize) / prevAvgDealSize * 100) : 0;
+
+                            return (
+                              <>
+                                <div className="text-center py-4">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <div className="text-3xl font-bold text-[#005C84]">
+                                      ${currentMetrics.pipelineValue > 0 ? formatNumber(currentMetrics.pipelineValue) : '0'}
+                                    </div>
+                                    {trends.pipelineValue !== 0 && (
+                                      <div className={`flex items-center text-sm ${trends.pipelineValue > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        {trends.pipelineValue > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                                        {Math.abs(trends.pipelineValue).toFixed(1)}%
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="text-sm text-gray-500 mt-1">Total Pipeline Value</div>
+                                  {trends.pipelineValue !== 0 && (
+                                    <div className={`text-xs mt-1 ${trends.pipelineValue > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {Math.abs(trends.pipelineValue).toFixed(1)}% vs {previousPeriodLabel}
+                                    </div>
+                                  )}
+                                  {compareEnabled && previousMetrics.pipelineValue > 0 && (
+                                    <div className="text-xs text-gray-500 mt-1 pt-1 border-t">
+                                      Previous: ${formatNumber(previousMetrics.pipelineValue)}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                                    <div className="flex items-center justify-center gap-2">
+                                      <div className="text-xl font-semibold text-gray-900">
+                                        ${avgDealSize > 0 ? formatNumber(avgDealSize) : '0'}
+                                      </div>
+                                      {avgDealSizeTrend !== 0 && (
+                                        <div className={`flex items-center text-xs ${avgDealSizeTrend > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                          {avgDealSizeTrend > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                                          {Math.abs(avgDealSizeTrend).toFixed(1)}%
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-gray-500">Avg Deal Size</div>
+                                    {compareEnabled && prevAvgDealSize > 0 && (
+                                      <div className="text-xs text-gray-500 mt-1">
+                                        Previous: ${formatNumber(prevAvgDealSize)}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                                    <div className="flex items-center justify-center gap-2">
+                                      <div className="text-xl font-semibold text-gray-900">{currentMetrics.opportunities}</div>
+                                      {trends.opportunities !== 0 && (
+                                        <div className={`flex items-center text-xs ${trends.opportunities > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                          {trends.opportunities > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                                          {Math.abs(trends.opportunities).toFixed(1)}%
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-gray-500">Active Opportunities</div>
+                                    {compareEnabled && previousMetrics.opportunities > 0 && (
+                                      <div className="text-xs text-gray-500 mt-1">
+                                        Previous: {previousMetrics.opportunities}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           )}
 
