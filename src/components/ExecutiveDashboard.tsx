@@ -3049,13 +3049,108 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                 </div>
 
                 <ResponsiveContainer width="100%" height={350}>
-                  <LineChart data={[
-                    { period: 'Q1 2024', website: 13245, social: 28450, email: 58.0, leads: 92 },
-                    { period: 'Q2 2024', website: 12890, social: 26780, email: 60.2, leads: 78 },
-                    { period: 'Q3 2024', website: 14567, social: 31200, email: 62.5, leads: 105 },
-                    { period: 'Q4 2024', website: 14053, social: 29890, email: 62.1, leads: 89 },
-                    { period: 'Q1 2025', website: 15739, social: 36307, email: 68.4, leads: 146 }
-                  ]}>
+                  <LineChart data={(() => {
+                    if (!data) return [];
+
+                    if (yoyChartView === 'monthly') {
+                      // Monthly view: show all months for comparison years
+                      const monthlyData: Array<{period: string, website: number, social: number, email: number, leads: number}> = [];
+                      const currentYear = selectedYear;
+                      const previousYear = currentYear - 1;
+
+                      for (let month = 1; month <= 12; month++) {
+                        const currentMonthData = data.websiteData.filter(d => d.year === currentYear && d.month === month);
+                        const prevMonthData = data.websiteData.filter(d => d.year === previousYear && d.month === month);
+
+                        const currentSocial = data.socialData.filter(d => d.year === currentYear && d.month === month);
+                        const prevSocial = data.socialData.filter(d => d.year === previousYear && d.month === month);
+
+                        const currentEmail = data.emailData.filter(d => d.year === currentYear && d.month === month);
+                        const prevEmail = data.emailData.filter(d => d.year === previousYear && d.month === month);
+
+                        const currentLeads = data.leadsData.filter(d => d.year === currentYear && d.month === month);
+                        const prevLeads = data.leadsData.filter(d => d.year === previousYear && d.month === month);
+
+                        const monthName = currentMonthData[0]?.monthName || new Date(2024, month - 1).toLocaleDateString('en-US', { month: 'short' });
+
+                        monthlyData.push({
+                          period: `${monthName} ${previousYear}`,
+                          website: prevMonthData.reduce((sum, d) => sum + (d.sessions || 0), 0),
+                          social: prevSocial.reduce((sum, d) => sum + (d.impressions || 0), 0),
+                          email: prevEmail.length > 0 ? prevEmail.reduce((sum, d) => sum + (d.openRate || 0), 0) / prevEmail.length : 0,
+                          leads: prevLeads.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0)
+                        });
+
+                        monthlyData.push({
+                          period: `${monthName} ${currentYear}`,
+                          website: currentMonthData.reduce((sum, d) => sum + (d.sessions || 0), 0),
+                          social: currentSocial.reduce((sum, d) => sum + (d.impressions || 0), 0),
+                          email: currentEmail.length > 0 ? currentEmail.reduce((sum, d) => sum + (d.openRate || 0), 0) / currentEmail.length : 0,
+                          leads: currentLeads.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0)
+                        });
+                      }
+
+                      return monthlyData.filter(d => d.website > 0 || d.social > 0 || d.email > 0 || d.leads > 0);
+                    } else if (yoyChartView === 'annual') {
+                      // Annual view: show yearly totals
+                      const years = [...new Set(data.websiteData.map(d => d.year))].sort();
+                      return years.map(year => {
+                        const yearWebsite = data.websiteData.filter(d => d.year === year);
+                        const yearSocial = data.socialData.filter(d => d.year === year);
+                        const yearEmail = data.emailData.filter(d => d.year === year);
+                        const yearLeads = data.leadsData.filter(d => d.year === year);
+
+                        return {
+                          period: year.toString(),
+                          website: yearWebsite.reduce((sum, d) => sum + (d.sessions || 0), 0),
+                          social: yearSocial.reduce((sum, d) => sum + (d.impressions || 0), 0),
+                          email: yearEmail.length > 0 ? yearEmail.reduce((sum, d) => sum + (d.openRate || 0), 0) / yearEmail.length : 0,
+                          leads: yearLeads.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0)
+                        };
+                      });
+                    } else {
+                      // Quarterly view (default): show quarters for comparison years
+                      const quarterlyData: Array<{period: string, website: number, social: number, email: number, leads: number}> = [];
+                      const currentYear = selectedYear;
+                      const previousYear = currentYear - 1;
+
+                      ['Q1', 'Q2', 'Q3', 'Q4'].forEach(quarter => {
+                        // Previous year quarter
+                        const prevQuarterWebsite = data.websiteData.filter(d => d.year === previousYear && d.quarter === quarter);
+                        const prevQuarterSocial = data.socialData.filter(d => d.year === previousYear && d.quarter === quarter);
+                        const prevQuarterEmail = data.emailData.filter(d => d.year === previousYear && d.quarter === quarter);
+                        const prevQuarterLeads = data.leadsData.filter(d => d.year === previousYear && d.quarter === quarter);
+
+                        if (prevQuarterWebsite.length > 0) {
+                          quarterlyData.push({
+                            period: `${quarter} ${previousYear}`,
+                            website: prevQuarterWebsite.reduce((sum, d) => sum + (d.sessions || 0), 0),
+                            social: prevQuarterSocial.reduce((sum, d) => sum + (d.impressions || 0), 0),
+                            email: prevQuarterEmail.length > 0 ? prevQuarterEmail.reduce((sum, d) => sum + (d.openRate || 0), 0) / prevQuarterEmail.length : 0,
+                            leads: prevQuarterLeads.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0)
+                          });
+                        }
+
+                        // Current year quarter
+                        const currentQuarterWebsite = data.websiteData.filter(d => d.year === currentYear && d.quarter === quarter);
+                        const currentQuarterSocial = data.socialData.filter(d => d.year === currentYear && d.quarter === quarter);
+                        const currentQuarterEmail = data.emailData.filter(d => d.year === currentYear && d.quarter === quarter);
+                        const currentQuarterLeads = data.leadsData.filter(d => d.year === currentYear && d.quarter === quarter);
+
+                        if (currentQuarterWebsite.length > 0) {
+                          quarterlyData.push({
+                            period: `${quarter} ${currentYear}`,
+                            website: currentQuarterWebsite.reduce((sum, d) => sum + (d.sessions || 0), 0),
+                            social: currentQuarterSocial.reduce((sum, d) => sum + (d.impressions || 0), 0),
+                            email: currentQuarterEmail.length > 0 ? currentQuarterEmail.reduce((sum, d) => sum + (d.openRate || 0), 0) / currentQuarterEmail.length : 0,
+                            leads: currentQuarterLeads.reduce((sum, d) => sum + (d.newMarketingProspects || 0), 0)
+                          });
+                        }
+                      });
+
+                      return quarterlyData;
+                    }
+                  })()}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis dataKey="period" />
                     <YAxis yAxisId="left" />
