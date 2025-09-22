@@ -2,6 +2,29 @@
 
 All notable changes to the CAAT Digital Marketing Dashboard will be documented in this file.
 
+## [1.3.0] - 2025-09-22
+
+### 🔄 Enhanced - Event Marketing Comparison Features
+- **Comprehensive Comparison Support**: Added full period-over-period comparison functionality to all Events tab sections
+- **Registration & Attendance Trends**: Current vs previous period area charts with attendance rate comparison
+- **Lead Conversion Funnel**: Side-by-side comparison bars for all conversion stages (Attended → MQL → SAL → Opportunities)
+- **Event Source Performance**: Enhanced with trending indicators and percentage change calculations
+- **Registration by Source**: Pie chart with trend summary showing source performance changes
+- **Smart Month Matching**: Position-based matching for quarterly comparisons, month-name matching for yearly comparisons
+- **Trending Indicators**: Visual trend arrows (⬆️/⬇️) with color-coded percentage changes for source metrics
+
+### 🏗️ Technical Improvements
+- **EventsChart Props**: Extended interface to support comparison data and toggle states
+- **Data Processing**: Enhanced comparison data filtering and monthly aggregation logic
+- **Chart Enhancements**: Updated ComposedChart, BarChart, and PieChart components for comparison modes
+- **Type Safety**: Strengthened TypeScript definitions for comparison functionality
+- **Performance**: Optimized data transformation for comparison calculations
+
+### 🐛 Bug Fixes
+- **Comparison Data Filtering**: Fixed filtering logic to use pre-filtered comparison data instead of re-filtering
+- **Month Matching**: Resolved quarterly comparison issues by implementing position-based matching for Q1 vs Q4 scenarios
+- **Trend Calculations**: Corrected percentage point calculations for market share changes
+
 ## [1.2.0] - 2025-09-22
 
 ### 🎉 Added - Event Marketing Integration

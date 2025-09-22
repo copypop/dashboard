@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   LineChart,
   Line,
@@ -27,7 +27,6 @@ import {
   BarChart3,
   Activity,
   AlertCircle,
-  Info,
   ChevronDown,
   RefreshCw,
   Settings,
@@ -307,6 +306,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
       };
     }
 
+
     // Return data for comparison period using same logic as getTabSpecificData
     switch (tabType) {
       case 'overview':
@@ -367,9 +367,10 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
           )
         };
       case 'events':
-        return data.eventsData.filter(d =>
+        const eventsComparisonData = data.eventsData.filter(d =>
           d.year === comparisonPeriod.year && (selectedPeriod === 'Year' || d.quarter === comparisonPeriod.quarter)
         );
+        return eventsComparisonData;
       case 'yoy':
         return {
           websiteData: data.websiteData.filter(d => d.year === comparisonPeriod.year),
@@ -2504,6 +2505,9 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   quarter: selectedPeriod === 'Year' ? undefined : selectedPeriod
                 }}
                 detailed={true}
+                compareEnabled={compareEnabled}
+                compareType={compareType}
+                comparisonData={getComparisonData('events')}
               />
 
               {/* Analysis Section */}

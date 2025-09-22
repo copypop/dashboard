@@ -147,6 +147,8 @@ case 'events':
 - **Responsive Design**: Uses ResponsiveContainer for all charts
 - **Custom Tooltips**: Formatted tooltips with proper number formatting
 - **Period Filtering**: Supports both quarterly and full-year views
+- **Comparison Support**: Full period-over-period comparison functionality
+- **Trending Indicators**: Visual trend arrows and percentage changes
 
 #### Monthly Aggregation Logic
 ```typescript
@@ -190,6 +192,27 @@ const monthlyAggregated = filteredData.reduce((acc, d) => {
 3. **Event Source Performance** (PieChart + Metrics)
    - Pie chart showing registration distribution by source
    - Detailed metrics table with source performance
+   - Registration share changes with trending indicators
+
+#### Comparison Features
+When comparison mode is enabled, EventsChart provides comprehensive period-over-period analysis:
+
+1. **Registration & Attendance Trends** (ComposedChart)
+   - Current vs previous period area charts
+   - Attendance rate comparison with separate line charts
+   - Position-based matching for quarterly comparisons (Q1 Jan→Q4 Oct)
+   - Month-name matching for yearly comparisons (Q1 Jan→Q1 Jan)
+
+2. **Lead Conversion Funnel** (BarChart)
+   - Side-by-side comparison bars for all conversion stages
+   - Current period in primary colors, previous period with reduced opacity
+   - Supports both Previous Quarter and Previous Year comparisons
+
+3. **Event Source Performance** (Enhanced)
+   - **Registration by Source**: Pie chart with trend summary below
+   - **Source Performance Metrics**: Individual metric trends with arrows
+   - **Trending Indicators**: ⬆️ Green for improvements, ⬇️ Red for declines
+   - **Percentage Changes**: Exact change values with "pp" for percentage points
 
 ### 4. Period Filtering
 
@@ -305,10 +328,15 @@ const filteredData = data.filter(d => {
 - [x] Executive Summary KPI integration
 - [x] Error handling and validation
 - [x] Responsive design implementation
+- [x] **Comparison functionality integration**
+- [x] **Trending indicators with TrendingUp/Down icons**
+- [x] **Position-based month matching for quarterly comparisons**
+- [x] **Registration source performance comparison**
+- [x] **Enhanced source metrics with trend arrows**
 - [x] Documentation and changelog
 
 ---
 
 **Last Updated**: September 22, 2025
-**Version**: 1.2.0
-**Status**: Production Ready
+**Version**: 1.3.0
+**Status**: Production Ready with Enhanced Comparisons
