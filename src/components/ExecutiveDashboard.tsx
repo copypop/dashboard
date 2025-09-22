@@ -2507,7 +2507,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                 detailed={true}
                 compareEnabled={compareEnabled}
                 compareType={compareType}
-                comparisonData={getComparisonData('events')}
+                comparisonData={getComparisonData('events') as any[]}
               />
 
               {/* Analysis Section */}

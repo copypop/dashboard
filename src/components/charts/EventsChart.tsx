@@ -468,12 +468,12 @@ export const EventsChart: React.FC<EventsChartProps> = ({
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ source, percent }) => `${source}: ${(percent * 100).toFixed(0)}%`}
+                      label={({ source, percent }) => `${source}: ${((percent || 0) * 100).toFixed(0)}%`}
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="registered"
                     >
-                      {sourceChartData.map((entry, index) => (
+                      {sourceChartData.map((_entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
