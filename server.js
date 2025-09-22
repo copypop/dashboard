@@ -66,8 +66,14 @@ function readExcelFile() {
 function getAnalysisPrompt(tabType, data, period, targets, compareMode, comparisonData) {
   const baseContext = `You are analyzing marketing data for CAAT Pension Plan for ${period.quarter} ${period.year}.
 CAAT is a pension plan provider, so focus on insights relevant to financial services marketing.
-Provide executive-level insights including trends, anomalies, performance vs targets, and actionable recommendations.
-Keep your response concise but insightful, suitable for marketing leadership.`;
+
+CRITICAL INSTRUCTIONS:
+- Base your analysis ONLY on the provided data - do not make assumptions or add information not present
+- If data is missing or insufficient, state this clearly rather than making estimates
+- Focus on factual observations from the actual numbers provided
+- Avoid speculative language and stick to what the data directly shows
+- Provide executive-level insights including trends, anomalies, performance vs targets, and actionable recommendations
+- Keep your response concise but insightful, suitable for marketing leadership`;
 
   const dataContext = `Data for analysis:\n${JSON.stringify(data, null, 2)}`;
 
@@ -87,6 +93,7 @@ Keep your response concise but insightful, suitable for marketing leadership.`;
     traffic: `Examine traffic source effectiveness, channel performance, and acquisition costs. Identify the most valuable traffic sources.`,
     social: `Review social media engagement trends, channel performance, content effectiveness, and audience growth across platforms.`,
     email: `Assess email marketing campaign performance, deliverability rates, engagement metrics, and subscriber behavior patterns.`,
+    events: `Analyze event marketing performance including registration rates, attendance patterns, lead conversion funnel from events, and event source effectiveness. Focus on lead quality and pipeline impact.`,
     leads: `Evaluate lead generation pipeline health, conversion rates, lead quality metrics, and sales funnel performance.`
   };
 
@@ -99,9 +106,9 @@ Keep your response concise but insightful, suitable for marketing leadership.`;
 async function getClaudeAnalysis(prompt) {
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 1000,
-      temperature: 0.3,
+      model: 'claude-sonnet-4',
+      max_tokens: 12000,
+      temperature: 0.0,
       messages: [
         {
           role: 'user',
