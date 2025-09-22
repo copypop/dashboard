@@ -33,7 +33,6 @@ import {
   Settings,
   Eye,
   MousePointer,
-  Upload,
   Database
 } from 'lucide-react';
 import { dataService } from '../services/dataService';
@@ -62,8 +61,6 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
   const [isLoading, setIsLoading] = useState(!initialData);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load data on mount
   useEffect(() => {
@@ -86,44 +83,24 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
   const loadInitialData = async () => {
     try {
       setIsLoading(true);
-      
-      // Try to load from public folder first
-      let fetchedData = await dataService.loadFromPublicFolder();
-      
-      // If not in public folder, check cache
+
+      // Try to load from server API via dataService
+      let fetchedData = await dataService.loadFromServer();
+
+      // If server fails, check cache as fallback
       if (!fetchedData) {
         fetchedData = dataService.getData();
       }
-      
+
       if (fetchedData) {
         setData(fetchedData);
         setLastUpdate(dataService.getLastUpdateTime());
         setError(null);
       } else {
-        // No data available, show upload prompt
-        setShowUploadModal(true);
+        setError('Could not load data from server. Please ensure the Excel file exists and the API server is running.');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
-      setShowUploadModal(true);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    try {
-      setIsLoading(true);
-      setShowUploadModal(false);
-      const data = await dataService.loadFromFile(file);
-      setData(data);
-      setLastUpdate(dataService.getLastUpdateTime());
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load Excel file');
+      setError(err instanceof Error ? err.message : 'Failed to load data from server');
     } finally {
       setIsLoading(false);
     }
@@ -132,11 +109,15 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
   const handleRefresh = async () => {
     try {
       setIsLoading(true);
+
+      // Use dataService to refresh data
       const data = await dataService.refresh();
       if (data) {
         setData(data);
         setLastUpdate(dataService.getLastUpdateTime());
         setError(null);
+      } else {
+        setError('Failed to refresh data from server');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to refresh data');
@@ -521,75 +502,12 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
             >
               Retry
             </button>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="px-4 py-2 bg-white text-[#005C84] border border-[#005C84] rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Upload Excel
-            </button>
           </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
         </div>
       </div>
     );
   }
   
-  // Upload Modal
-  if (showUploadModal && !data) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-        <div className="bg-white rounded-xl shadow-xl p-8 max-w-md w-full">
-          <img 
-            src="/caat-logo-en.svg" 
-            alt="CAAT Pension Plan" 
-            className="h-12 w-auto mx-auto mb-6"
-          />
-          <h2 className="text-2xl font-bold text-gray-900 text-center mb-2">Welcome to CAAT Dashboard</h2>
-          <p className="text-gray-600 text-center mb-6">
-            Please upload the Excel data file to get started
-          </p>
-          
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-[#005C84] transition-colors">
-            <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-sm text-gray-600 mb-4">
-              Click to upload or drag and drop<br />
-              CAAT_Dashboard_Data_2025.xlsx
-            </p>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="px-6 py-2 bg-[#005C84] text-white rounded-lg hover:bg-[#004A6C] transition-colors"
-            >
-              Select Excel File
-            </button>
-          </div>
-          
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
-          
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-            <div className="flex items-start gap-2">
-              <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-blue-800">
-                <p className="font-semibold mb-1">Tip:</p>
-                <p>Place the Excel file in the public folder to load automatically on startup.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-5">
@@ -3567,13 +3485,6 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
           </div>
           <div className="flex items-center gap-4">
             <button 
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 text-gray-600 hover:text-[#005C84] transition-colors"
-            >
-              <Upload className="h-4 w-4" />
-              Upload Excel
-            </button>
-            <button 
               onClick={handleRefresh}
               className="flex items-center gap-2 text-gray-600 hover:text-[#005C84] transition-colors"
               disabled={isLoading}
@@ -3594,13 +3505,6 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               Clear Cache
             </button>
           </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
         </div>
       </div>
     </div>

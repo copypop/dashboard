@@ -28,6 +28,7 @@ class DataService {
 
   // Get current data
   public getData(): DashboardData | null {
+    console.log('getData called, returning:', this.cachedData ? 'data available' : 'no data');
     return this.cachedData;
   }
 
@@ -36,32 +37,36 @@ class DataService {
     return this.lastUpdateTime;
   }
 
-  // Load Excel file from public folder
-  public async loadFromPublicFolder(): Promise<DashboardData | null> {
+  // Load data from API server
+  public async loadFromServer(): Promise<DashboardData | null> {
     try {
-      console.log('Attempting to load Excel from public folder...');
-      
-      // Try to fetch the Excel file from public folder
-      const response = await fetch('/CAAT_Dashboard_Data_2025.xlsx');
-      
-      if (!response.ok) {
-        console.log('Excel file not found in public folder');
+      console.log('Loading data from API server...');
+
+      const response = await fetch('http://localhost:8000/api/dashboard-data');
+
+      if (response.ok) {
+        const result = await response.json();
+        const transformedData = this.transformServerData(result.data);
+
+        // Cache the data
+        this.cachedData = transformedData;
+        this.lastUpdateTime = new Date(result.lastModified);
+        this.saveToCache();
+        this.notifyListeners(transformedData);
+
+        console.log('Data loaded successfully from API server');
+        console.log('Transformed data structure:', {
+          config: transformedData.config,
+          websiteDataCount: transformedData.websiteData.length,
+          hasTargets: transformedData.targets.length > 0
+        });
+        return transformedData;
+      } else {
+        console.error('Failed to load data from API server');
         return null;
       }
-
-      const arrayBuffer = await response.arrayBuffer();
-      const data = this.parseExcelBuffer(arrayBuffer);
-      
-      // Cache the data
-      this.cachedData = data;
-      this.lastUpdateTime = new Date();
-      this.saveToCache();
-      this.notifyListeners(data);
-      
-      console.log('Excel loaded successfully from public folder');
-      return data;
     } catch (error) {
-      console.error('Error loading Excel from public folder:', error);
+      console.error('Error loading data from API server:', error);
       return null;
     }
   }
@@ -120,6 +125,11 @@ class DataService {
     };
   }
 
+  // Transform server data to match our TypeScript types
+  public transformServerData(serverData: Record<string, any[]>): DashboardData {
+    return this.transformExcelData(serverData);
+  }
+
   // Save data to localStorage
   private saveToCache() {
     if (!this.cachedData) return;
@@ -159,17 +169,33 @@ class DataService {
     console.log('Cache cleared');
   }
 
-  // Refresh data (try public folder first, return cached if fails)
+  // Refresh data from API server
   public async refresh(): Promise<DashboardData | null> {
-    // Try to load from public folder
-    const freshData = await this.loadFromPublicFolder();
-    
-    if (freshData) {
-      return freshData;
+    try {
+      console.log('Refreshing data from API server...');
+
+      const response = await fetch('http://localhost:8000/api/dashboard-data');
+
+      if (response.ok) {
+        const result = await response.json();
+        const transformedData = this.transformServerData(result.data);
+
+        // Cache the data
+        this.cachedData = transformedData;
+        this.lastUpdateTime = new Date(result.lastModified);
+        this.saveToCache();
+        this.notifyListeners(transformedData);
+
+        console.log('Data refreshed successfully from API server');
+        return transformedData;
+      } else {
+        console.error('Failed to fetch data from API server');
+        return this.cachedData; // Return cached data if API fails
+      }
+    } catch (error) {
+      console.error('Error refreshing data from API server:', error);
+      return this.cachedData; // Return cached data if API fails
     }
-    
-    // Return cached data if available
-    return this.cachedData;
   }
 
   private parseConfig(data: any[]): any {

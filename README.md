@@ -1,14 +1,14 @@
 # CAAT Digital Marketing Dashboard
 
-A comprehensive, real-time digital marketing analytics dashboard for CAAT Pension Plan. This executive dashboard provides instant insights into website performance, social media engagement, email marketing effectiveness, and lead generation metrics.
+A comprehensive digital marketing analytics dashboard for CAAT Pension Plan. This executive dashboard provides insights into website performance, social media engagement, email marketing effectiveness, and lead generation metrics with monthly data updates.
 
 ## 🚀 Features
 
-### Real-Time Data Integration
-- **Automatic Excel Monitoring**: Watches `CAAT_Dashboard_Data_2025.xlsx` for changes
-- **Instant Updates**: Dashboard refreshes automatically when Excel data changes
-- **WebSocket Communication**: Real-time synchronization between server and client
-- **No Manual Upload Required**: Data flows seamlessly from Excel to dashboard
+### Simplified Data Integration
+- **Server-Based Data Loading**: Serves `CAAT_Dashboard_Data_2025.xlsx` via REST API
+- **Monthly Data Updates**: Dashboard loads fresh data from Excel file when refreshed
+- **Simple Architecture**: Clean separation between data storage and visualization
+- **No Upload Required**: Data is read directly from Excel file on server
 
 ### Interactive Dashboard Components
 - **Dynamic Period Selection**: Switch between Q1, Q2, Q3, Q4, and full Year views
@@ -38,7 +38,7 @@ A comprehensive, real-time digital marketing analytics dashboard for CAAT Pensio
 npm install
 ```
 
-2. **Start the file watcher server** (Terminal 1):
+2. **Start the API server** (Terminal 1):
 ```bash
 npm run server
 ```
@@ -70,11 +70,12 @@ Your Excel file should contain the following sheets:
 
 ## 🎯 Usage
 
-1. **Upload Data**: Click the upload area and select your Excel file
-2. **Select Period**: Use the period selector to choose quarter and year
-3. **Navigate Tabs**: Explore different sections (Overview, Website, Traffic, etc.)
-4. **Compare Periods**: Enable comparison mode to analyze period-over-period trends
-5. **View Trends**: Check trend indicators and previous period comparisons in all tabs
+1. **Start Servers**: Run both the API server and development server
+2. **Update Excel File**: Place `CAAT_Dashboard_Data_2025.xlsx` in the parent directory
+3. **Select Period**: Use the period selector to choose quarter and year
+4. **Navigate Tabs**: Explore different sections (Overview, Website, Traffic, etc.)
+5. **Compare Periods**: Enable comparison mode to analyze period-over-period trends
+6. **Refresh Data**: Click the refresh button to load updated Excel data
 
 ### 📊 Comparison Features
 
@@ -100,6 +101,7 @@ The dashboard now includes comprehensive period-over-period comparison functiona
 
 - **Frontend Framework**: React 18 with TypeScript
 - **Build Tool**: Vite
+- **Backend API**: Express.js server
 - **State Management**: Zustand
 - **UI Components**: Custom components inspired by shadcn/ui
 - **Styling**: Tailwind CSS
@@ -170,10 +172,10 @@ caat-dashboard/
 
 ## 🔐 Security
 
-- All data processing happens client-side
+- Data is processed on local server (localhost)
 - No data is sent to external servers
-- Excel files are processed in-browser
-- Sensitive information should be excluded from uploads
+- Excel files are read directly from local filesystem
+- Secure local development environment
 
 ## 📝 License
 

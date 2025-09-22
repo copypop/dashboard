@@ -2,11 +2,11 @@
 
 ## 🏢 Project Overview
 
-The **CAAT Digital Marketing Dashboard** is a comprehensive, real-time analytics platform designed for CAAT Pension Plan's marketing team. This executive dashboard provides instant insights into website performance, social media engagement, email marketing effectiveness, and lead generation metrics.
+The **CAAT Digital Marketing Dashboard** is a comprehensive analytics platform designed for CAAT Pension Plan's marketing team. This executive dashboard provides insights into website performance, social media engagement, email marketing effectiveness, and lead generation metrics with monthly data updates.
 
 ### Project Purpose
 - Monitor marketing KPIs across all digital channels
-- Provide real-time data synchronization with Excel data sources
+- Provide monthly data updates from Excel data sources
 - Enable data-driven decision making for marketing campaigns
 - Support executive reporting and quarterly performance reviews
 - Track progress against targets and goals
@@ -23,34 +23,36 @@ The **CAAT Digital Marketing Dashboard** is a comprehensive, real-time analytics
 
 ### Architecture Overview
 
-The CAAT Dashboard uses a modern, microservices-inspired architecture separating data monitoring, processing, and presentation layers.
+The CAAT Dashboard uses a simplified REST API architecture with monthly Excel data updates. **Note: Real-time functionality has been removed** to align with monthly data update cycles.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     Excel Data Source                        │
-│                 (CAAT_Dashboard_Data_2025.xlsx)             │
+│                   Excel Data Source                          │
+│      (public/CAAT_Dashboard_Data_2025.xlsx)                 │
+│             (Updated Monthly - No Real-time)                │
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                   File Watcher Service                       │
-│                      (server.js)                            │
-│  - Chokidar File Monitoring                                 │
+│                   Simple API Server                         │
+│                     (server.js)                             │
 │  - SheetJS Excel Parsing                                    │
-│  - WebSocket Server (ws)                                    │
-│  - Express HTTP API                                         │
+│  - Express HTTP REST API                                    │
+│  - Static File Serving (Port 8000)                         │
+│  - No WebSocket/Real-time Features                         │
 └────────────────────────┬────────────────────────────────────┘
-                         │ WebSocket
+                         │ HTTP REST API
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    React Application                         │
-│                  (TypeScript + Vite)                        │
+│                  React Frontend App                         │
+│                (TypeScript + Vite)                          │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │              Data Service Layer                      │   │
-│  │            (dataService.ts)                         │   │
-│  │  - WebSocket Client                                 │   │
-│  │  - Auto-reconnection                                │   │
+│  │           Simplified Data Service                    │   │
+│  │             (dataService.ts)                        │   │
+│  │  - HTTP API Client (No WebSocket)                  │   │
 │  │  - Data Transformation                              │   │
+│  │  - Local Storage Caching                           │   │
+│  │  - No File Upload Functionality                    │   │
 │  └──────────────────┬──────────────────────────────────┘   │
 │                     │                                        │
 │  ┌──────────────────▼──────────────────────────────────┐   │
@@ -60,7 +62,8 @@ The CAAT Dashboard uses a modern, microservices-inspired architecture separating
 │                     │                                        │
 │  ┌──────────────────▼──────────────────────────────────┐   │
 │  │          Component Layer                            │   │
-│  │  - ExecutiveDashboard (Main Container)             │   │
+│  │  - Dynamic Period Selector                         │   │
+│  │  - ExecutiveDashboard & Dashboard Views            │   │
 │  │  - Chart Components (Recharts)                     │   │
 │  │  - UI Components (Tailwind)                        │   │
 │  └─────────────────────────────────────────────────────┘   │
@@ -78,9 +81,8 @@ The CAAT Dashboard uses a modern, microservices-inspired architecture separating
 
 #### Backend Services
 - **Express.js** HTTP server for API endpoints
-- **WebSocket (ws)** for real-time communication
-- **Chokidar** for file system monitoring
 - **SheetJS (xlsx)** for Excel file parsing
+- **REST API** for data serving
 
 #### Development Tools
 - **ESLint** for code quality
@@ -93,14 +95,46 @@ The CAAT Dashboard uses a modern, microservices-inspired architecture separating
 - **Vercel** for hosting and deployment
 - **Environment Variables** for secure configuration
 
+### Recent Architecture Simplification (September 2025)
+
+**Major Changes Made:**
+The dashboard architecture has been significantly simplified to align with monthly data update workflows:
+
+#### ✅ Removed Features
+- **Real-time data sync** via WebSockets (ws library)
+- **File watching functionality** (chokidar library)
+- **Live data refresh** without page reload
+- **File upload capability** within the dashboard
+- **WebSocket server** and client connections
+
+#### ✅ Added Features
+- **Dynamic Period Selector** - Years and quarters automatically determined from data
+- **Simplified REST API** serving Excel data via HTTP endpoints
+- **Improved data source management** with Excel file in `public/` folder
+- **Better data validation** ensuring period selections have available data
+
+#### 🎯 Benefits
+- **Reduced complexity** - Simpler codebase with fewer dependencies
+- **Better reliability** - No WebSocket connection issues or file watching conflicts
+- **Easier maintenance** - Standard REST API patterns
+- **Aligned with workflow** - Monthly data updates match simplified architecture
+- **Improved user experience** - Dynamic selectors prevent empty data displays
+
+#### 📦 Key File Changes
+- `server.js` - Removed WebSocket server, added simple REST API
+- `dataService.ts` - Removed WebSocket client, added HTTP API methods
+- `PeriodSelector.tsx` - Added dynamic year/quarter detection from data
+- `ExecutiveDashboard.tsx` - Simplified data loading without file upload
+- Removed `FileUpload.tsx` component entirely
+
 ---
 
 ## 📁 Project Structure
 
 ```
 C:\dashboard\
-├── CAAT_Dashboard_Data_2025.xlsx          # Main data source
-├── CAAT_Dashboard_Data_2025_Original.xlsx # Backup
+├── CAAT_Dashboard_Data_2025.xlsx          # Backup data source
+├── CAAT_Dashboard_Data_2025_Original.xlsx # Original backup
 ├── analyze_excel.py                       # Python analysis script
 ├── exec-dashboard.html                    # Standalone HTML dashboard
 ├── images/                                # Screenshots and assets
@@ -110,10 +144,12 @@ C:\dashboard\
     ├── .env                              # Environment configuration
     ├── .git/                             # Git repository
     ├── .vercel/                          # Vercel deployment config
+    ├── public/
+    │   ├── CAAT_Dashboard_Data_2025.xlsx # Current data source (NEW LOCATION)
+    │   ├── caat-logo-en.svg             # CAAT logo
+    │   └── vite.svg                      # Vite logo
     ├── dist/                             # Production build output
     ├── node_modules/                     # Dependencies
-    ├── public/                           # Static assets
-    │   └── CAAT_Dashboard_Data_2025.xlsx # Auto-load Excel file
     ├── src/                              # Source code
     │   ├── components/                   # React components
     │   │   ├── charts/                   # Chart components
@@ -189,52 +225,61 @@ C:\dashboard\
 ### Prerequisites
 - **Node.js 18+** installed
 - **npm 8+** for package management
-- **Excel file**: `CAAT_Dashboard_Data_2025.xlsx` in parent directory
+- **Excel file**: `CAAT_Dashboard_Data_2025.xlsx` in `public/` directory
 - **Modern browser**: Chrome 90+, Edge 90+, Firefox 88+, Safari 14+
 
-### Quick Start (Simplified Method)
+### Simplified Setup (Current Method)
 
+The dashboard now uses a simplified architecture without real-time features:
+
+**Step 1: Install Dependencies**
 ```bash
-# Navigate to project directory
 cd C:\dashboard\caat-dashboard
-
-# Install dependencies
 npm install
-
-# Start dashboard (single command)
-npm run dev
 ```
 
-The dashboard will start at `http://localhost:5173`
+**Step 2: Start Both Servers**
 
-### Full Setup (Real-time Updates)
-
-For real-time Excel monitoring:
-
-**Terminal 1 - File Watcher Server:**
+**Terminal 1 - API Server:**
 ```bash
 cd C:\dashboard\caat-dashboard
-npm run server
+node server.js
 ```
 
-**Terminal 2 - Dashboard:**
+**Terminal 2 - Frontend Dashboard:**
 ```bash
 cd C:\dashboard\caat-dashboard
 npm run dev
 ```
+
+The dashboard will be available at:
+- **Frontend**: `http://localhost:5174` (or similar port)
+- **API Server**: `http://localhost:8000`
 
 ### Alternative Startup Methods
 
-**Option 1: Combined Start (if configured)**
-```bash
-npm run dashboard
-```
-
-**Option 2: Production Build**
+**Option 1: Production Build**
 ```bash
 npm run build
 npm run preview
 ```
+
+**Option 2: Using npm scripts (if configured)**
+```bash
+# For API server
+npm run server
+
+# For frontend
+npm run dev
+```
+
+### Data Updates
+
+To update data:
+1. Edit `public/CAAT_Dashboard_Data_2025.xlsx`
+2. Save the Excel file
+3. Restart the API server: `node server.js`
+4. Refresh the browser
 
 ---
 
@@ -300,14 +345,16 @@ interface DashboardData {
 
 ## 🎯 Features & Functionality
 
-### Real-Time Data Integration
-- **Automatic Excel Monitoring**: Watches `CAAT_Dashboard_Data_2025.xlsx` for changes
-- **Instant Updates**: Dashboard refreshes automatically when Excel data changes
-- **WebSocket Communication**: Real-time synchronization between server and client
-- **No Manual Upload Required**: Data flows seamlessly from Excel to dashboard
+### Simplified Data Integration
+- **Excel Data Source**: Reads from `public/CAAT_Dashboard_Data_2025.xlsx`
+- **REST API Service**: Clean HTTP endpoints for data access
+- **Local Storage Caching**: Improved performance with browser caching
+- **Manual Refresh Workflow**: Aligned with monthly data update cycles
 
 ### Interactive Dashboard Components
-- **Dynamic Period Selection**: Switch between Q1, Q2, Q3, Q4, and full Year views
+- **Dynamic Period Selection**: Years and quarters automatically detected from data
+- **Smart Validation**: Only shows periods with available data
+- **Automatic Quarter Selection**: Intelligently selects valid quarters when changing years
 - **Smart Comparisons**: Automatic period-over-period comparisons
 - **Multi-Tab Interface**: Organized views for different marketing channels
 - **Responsive Design**: Works on desktop, tablet, and mobile devices
@@ -568,10 +615,11 @@ NODE_ENV=production
    - Review any alerts or notifications
 
 2. **Data Updates**
-   - Open Excel file: `C:\dashboard\CAAT_Dashboard_Data_2025.xlsx`
+   - Open Excel file: `public/CAAT_Dashboard_Data_2025.xlsx`
    - Add new data to appropriate sheets
    - Save file (Ctrl+S)
-   - Watch dashboard update automatically
+   - Restart API server to load new data: `npm run server`
+   - Refresh browser to see updated data
 
 3. **Analysis & Reporting**
    - Use period selectors for specific timeframes
@@ -602,8 +650,8 @@ NODE_ENV=production
 #### System Monitoring
 1. **Server Health Checks**
    - Monitor server console for errors
-   - Check WebSocket connection status
-   - Verify file watching functionality
+   - Check API endpoint responses
+   - Verify Excel file accessibility
 
 2. **Data Quality Validation**
    - Review Excel data for completeness

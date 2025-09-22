@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { FileUpload } from './FileUpload';
+import React, { useState, useEffect } from 'react';
 import { MetricCard } from './MetricCard';
 import { WebsiteChart } from './charts/WebsiteChart';
 import { TrafficSourcesChart } from './charts/TrafficSourcesChart';
@@ -8,6 +7,7 @@ import { EmailChart } from './charts/EmailChart';
 import { PeriodSelector } from './PeriodSelector';
 import { useDashboardStore } from '../store/dashboardStore';
 import { DataProcessor } from '../utils/dataProcessor';
+import { dataService } from '../services/dataService';
 import { cn } from '@/lib/utils';
 import { 
   Users, 
@@ -29,28 +29,38 @@ export const Dashboard: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState('overview');
 
-  const handleFileUpload = async (file: File) => {
+  const loadDataFromServer = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
-      const dashboardData = await DataProcessor.parseExcelFile(file);
-      setData(dashboardData);
-      
-      
-      // Update selected period to match data
-      if (dashboardData.config) {
-        setSelectedPeriod({
-          year: dashboardData.config.currentYear,
-          quarter: dashboardData.config.currentQuarter
-        });
+      // Use dataService for consistent data loading
+      const dashboardData = await dataService.loadFromServer();
+
+      if (dashboardData) {
+        setData(dashboardData);
+
+        // Update selected period to match data
+        if (dashboardData.config) {
+          setSelectedPeriod({
+            year: dashboardData.config.currentYear,
+            quarter: dashboardData.config.currentQuarter
+          });
+        }
+      } else {
+        setError('Failed to load data from server. Please ensure the Excel file exists.');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load Excel file');
+      setError(err instanceof Error ? err.message : 'Failed to connect to server');
     } finally {
       setLoading(false);
     }
   };
+
+  // Load data on component mount
+  useEffect(() => {
+    loadDataFromServer();
+  }, []);
 
   const getQuarterlyMetrics = () => {
     if (!data) return null;
@@ -112,14 +122,29 @@ export const Dashboard: React.FC = () => {
             <h1 className="text-4xl font-bold bg-gradient-to-r from-caat-blue to-caat-green bg-clip-text text-transparent">
               CAAT Digital Marketing Dashboard
             </h1>
-            <p className="text-gray-600 mt-2">Upload your Excel data to get started</p>
+            <p className="text-gray-600 mt-2">
+              {loading ? 'Loading data from server...' : 'Ready to display your dashboard data'}
+            </p>
           </div>
-          
-          <FileUpload 
-            onFileUpload={handleFileUpload}
-            isLoading={loading}
-            error={error}
-          />
+
+          {loading && (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-caat-blue"></div>
+            </div>
+          )}
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+              <h3 className="text-red-800 font-semibold mb-2">Error Loading Data</h3>
+              <p className="text-red-600">{error}</p>
+              <button
+                onClick={loadDataFromServer}
+                className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
