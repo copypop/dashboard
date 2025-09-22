@@ -39,10 +39,11 @@ import { dataService } from '../services/dataService';
 import type { DashboardData } from '../types/dashboard';
 import { InfoTooltip } from './ui/InfoTooltip';
 import { ExportButton } from './ui/ExportButton';
-import { AnalysisButton } from './AnalysisButton';
-import { AnalysisResults } from './AnalysisResults';
+// import { AnalysisButton } from './AnalysisButton';
+// import { AnalysisResults } from './AnalysisResults';
+import { EventsChart } from './charts/EventsChart';
 
-type TabType = 'overview' | 'website' | 'seo' | 'social' | 'email' | 'leads' | 'sov' | 'quarterly' | 'yoy';
+type TabType = 'overview' | 'website' | 'seo' | 'social' | 'email' | 'events' | 'leads' | 'sov' | 'quarterly' | 'yoy';
 type PeriodType = 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'Year';
 type ChartView = 'quarterly' | 'monthly' | 'yoy' | 'annual' | 'all' | 'traffic' | 'engagement' | 'conversion';
 
@@ -63,9 +64,9 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
   const [isLoading, setIsLoading] = useState(!initialData);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const [analysisLoading, setAnalysisLoading] = useState(false);
-  const [analysisResults, setAnalysisResults] = useState<Record<string, any>>({});
-  const [analysisErrors, setAnalysisErrors] = useState<Record<string, string | null>>({});
+  // const [analysisLoading, setAnalysisLoading] = useState(false);
+  // const [analysisResults, setAnalysisResults] = useState<Record<string, any>>({});
+  // const [analysisErrors, setAnalysisErrors] = useState<Record<string, string | null>>({});
 
   // Load data on mount
   useEffect(() => {
@@ -86,10 +87,10 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
   }, [initialData]);
 
   // Clear analysis only when period changes (not when tab changes)
-  useEffect(() => {
-    setAnalysisResults({});
-    setAnalysisErrors({});
-  }, [selectedPeriod, selectedYear]);
+  // useEffect(() => {
+  //   setAnalysisResults({});
+  //   setAnalysisErrors({});
+  // }, [selectedPeriod, selectedYear]);
 
   const loadInitialData = async () => {
     try {
@@ -137,41 +138,41 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
     }
   };
 
-  const handleAnalysis = async () => {
-    if (!data || !selectedYear) {
-      setAnalysisErrors(prev => ({ ...prev, [activeTab]: 'No data available for analysis' }));
-      return;
-    }
+  // const handleAnalysis = async () => {
+  //   if (!data || !selectedYear) {
+  //     setAnalysisErrors(prev => ({ ...prev, [activeTab]: 'No data available for analysis' }));
+  //     return;
+  //   }
 
-    setAnalysisLoading(true);
-    setAnalysisErrors(prev => ({ ...prev, [activeTab]: null }));
+  //   setAnalysisLoading(true);
+  //   setAnalysisErrors(prev => ({ ...prev, [activeTab]: null }));
 
-    try {
-      // Get data specific to the current tab
-      const tabData = getTabSpecificData(activeTab);
-      const targets = getTabTargets(activeTab);
+  //   try {
+  //     // Get data specific to the current tab
+  //     const tabData = getTabSpecificData(activeTab);
+  //     const targets = getTabTargets(activeTab);
 
-      const analysisRequest = {
-        tabType: activeTab,
-        data: tabData,
-        period: {
-          year: selectedYear,
-          quarter: selectedPeriod
-        },
-        targets,
-        compareMode: compareEnabled,
-        comparisonData: compareEnabled ? getComparisonData(activeTab) : null
-      };
+  //     const analysisRequest = {
+  //       tabType: activeTab,
+  //       data: tabData,
+  //       period: {
+  //         year: selectedYear,
+  //         quarter: selectedPeriod
+  //       },
+  //       targets,
+  //       compareMode: compareEnabled,
+  //       comparisonData: compareEnabled ? getComparisonData(activeTab) : null
+  //     };
 
-      const result = await dataService.getAnalysis(analysisRequest);
-      setAnalysisResults(prev => ({ ...prev, [activeTab]: result }));
-    } catch (error) {
-      console.error('Analysis failed:', error);
-      setAnalysisErrors(prev => ({ ...prev, [activeTab]: error instanceof Error ? error.message : 'Analysis failed' }));
-    } finally {
-      setAnalysisLoading(false);
-    }
-  };
+  //     const result = await dataService.getAnalysis(analysisRequest);
+  //     setAnalysisResults(prev => ({ ...prev, [activeTab]: result }));
+  //   } catch (error) {
+  //     console.error('Analysis failed:', error);
+  //     setAnalysisErrors(prev => ({ ...prev, [activeTab]: error instanceof Error ? error.message : 'Analysis failed' }));
+  //   } finally {
+  //     setAnalysisLoading(false);
+  //   }
+  // };
 
   const getTabSpecificData = (tabType: TabType) => {
     if (!data) return null;
@@ -216,8 +217,39 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
         return data.leadsData.filter(d =>
           d.year === periodData.year && (selectedPeriod === 'Year' || d.quarter === periodData.quarter)
         );
+      case 'seo':
+        return data.searchData.filter(d =>
+          d.year === periodData.year && (selectedPeriod === 'Year' || d.quarter === periodData.quarter)
+        );
       case 'sov':
         return data.shareOfVoiceData.filter(d =>
+          d.year === periodData.year && (selectedPeriod === 'Year' || d.quarter === periodData.quarter)
+        );
+      case 'quarterly':
+        return {
+          websiteData: data.websiteData.filter(d =>
+            d.year === periodData.year && (selectedPeriod === 'Year' || d.quarter === periodData.quarter)
+          ),
+          socialData: data.socialData.filter(d =>
+            d.year === periodData.year && (selectedPeriod === 'Year' || d.quarter === periodData.quarter)
+          ),
+          emailData: data.emailData.filter(d =>
+            d.year === periodData.year && (selectedPeriod === 'Year' || d.quarter === periodData.quarter)
+          ),
+          leadsData: data.leadsData.filter(d =>
+            d.year === periodData.year && (selectedPeriod === 'Year' || d.quarter === periodData.quarter)
+          )
+        };
+      case 'yoy':
+        return {
+          websiteData: data.websiteData.filter(d => d.year === periodData.year),
+          socialData: data.socialData.filter(d => d.year === periodData.year),
+          emailData: data.emailData.filter(d => d.year === periodData.year),
+          leadsData: data.leadsData.filter(d => d.year === periodData.year),
+          searchData: data.searchData.filter(d => d.year === periodData.year)
+        };
+      case 'events':
+        return data.eventsData.filter(d =>
           d.year === periodData.year && (selectedPeriod === 'Year' || d.quarter === periodData.quarter)
         );
       default:
@@ -242,6 +274,13 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
             return target.metricCategory === 'Email';
           case 'leads':
             return target.metricCategory === 'Leads';
+          case 'seo':
+            return target.metricCategory === 'SEO' || target.metricCategory === 'Search';
+          case 'sov':
+            return target.metricCategory === 'Share of Voice' || target.metricCategory === 'SOV';
+          case 'quarterly':
+          case 'yoy':
+            return true; // Include all targets for comprehensive analysis
           default:
             return false;
         }
@@ -275,23 +314,80 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
           websiteData: data.websiteData.filter(d =>
             d.year === comparisonPeriod.year && (selectedPeriod === 'Year' || d.quarter === comparisonPeriod.quarter)
           ),
-          // Add other data types as needed
+          trafficSources: data.trafficSources.filter(d =>
+            d.year === comparisonPeriod.year && (selectedPeriod === 'Year' || d.quarter === comparisonPeriod.quarter)
+          ),
+          socialData: data.socialData.filter(d =>
+            d.year === comparisonPeriod.year && (selectedPeriod === 'Year' || d.quarter === comparisonPeriod.quarter)
+          ),
+          emailData: data.emailData.filter(d =>
+            d.year === comparisonPeriod.year && (selectedPeriod === 'Year' || d.quarter === comparisonPeriod.quarter)
+          ),
+          leadsData: data.leadsData.filter(d =>
+            d.year === comparisonPeriod.year && (selectedPeriod === 'Year' || d.quarter === comparisonPeriod.quarter)
+          )
         };
       case 'website':
         return data.websiteData.filter(d =>
           d.year === comparisonPeriod.year && (selectedPeriod === 'Year' || d.quarter === comparisonPeriod.quarter)
         );
-      // Add other cases as needed
+      case 'social':
+        return data.socialData.filter(d =>
+          d.year === comparisonPeriod.year && (selectedPeriod === 'Year' || d.quarter === comparisonPeriod.quarter)
+        );
+      case 'email':
+        return data.emailData.filter(d =>
+          d.year === comparisonPeriod.year && (selectedPeriod === 'Year' || d.quarter === comparisonPeriod.quarter)
+        );
+      case 'leads':
+        return data.leadsData.filter(d =>
+          d.year === comparisonPeriod.year && (selectedPeriod === 'Year' || d.quarter === comparisonPeriod.quarter)
+        );
+      case 'seo':
+        return data.searchData.filter(d =>
+          d.year === comparisonPeriod.year && (selectedPeriod === 'Year' || d.quarter === comparisonPeriod.quarter)
+        );
+      case 'sov':
+        return data.shareOfVoiceData.filter(d =>
+          d.year === comparisonPeriod.year && (selectedPeriod === 'Year' || d.quarter === comparisonPeriod.quarter)
+        );
+      case 'quarterly':
+        return {
+          websiteData: data.websiteData.filter(d =>
+            d.year === comparisonPeriod.year && (selectedPeriod === 'Year' || d.quarter === comparisonPeriod.quarter)
+          ),
+          socialData: data.socialData.filter(d =>
+            d.year === comparisonPeriod.year && (selectedPeriod === 'Year' || d.quarter === comparisonPeriod.quarter)
+          ),
+          emailData: data.emailData.filter(d =>
+            d.year === comparisonPeriod.year && (selectedPeriod === 'Year' || d.quarter === comparisonPeriod.quarter)
+          ),
+          leadsData: data.leadsData.filter(d =>
+            d.year === comparisonPeriod.year && (selectedPeriod === 'Year' || d.quarter === comparisonPeriod.quarter)
+          )
+        };
+      case 'events':
+        return data.eventsData.filter(d =>
+          d.year === comparisonPeriod.year && (selectedPeriod === 'Year' || d.quarter === comparisonPeriod.quarter)
+        );
+      case 'yoy':
+        return {
+          websiteData: data.websiteData.filter(d => d.year === comparisonPeriod.year),
+          socialData: data.socialData.filter(d => d.year === comparisonPeriod.year),
+          emailData: data.emailData.filter(d => d.year === comparisonPeriod.year),
+          leadsData: data.leadsData.filter(d => d.year === comparisonPeriod.year),
+          searchData: data.searchData.filter(d => d.year === comparisonPeriod.year)
+        };
       default:
         return null;
     }
   };
 
   // Clear analysis only when period changes (not when tab changes)
-  useEffect(() => {
-    setAnalysisResults({});
-    setAnalysisErrors({});
-  }, [selectedPeriod, selectedYear]);
+  // useEffect(() => {
+  //   setAnalysisResults({});
+  //   setAnalysisErrors({});
+  // }, [selectedPeriod, selectedYear]);
 
   // Helper functions
   const formatNumber = (num: number): string => {
@@ -489,7 +585,36 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
         formatted: '3.2x',
         trend: { value: 14.3, direction: 'up' },
         previousValue: 2.8
-      }
+      },
+      eventRegistrations: (() => {
+        if (!data.eventsData) {
+          return {
+            value: 0,
+            formatted: '0',
+            trend: { value: 0, direction: 'up' as const },
+            previousValue: 0
+          };
+        }
+
+        const currentEventsData = data.eventsData.filter(d =>
+          d.year === selectedYear &&
+          (currentQuarter ? d.quarter === currentQuarter : true)
+        );
+        const previousEventsData = data.eventsData.filter(d =>
+          d.year === previousYear &&
+          (previousQuarter ? d.quarter === previousQuarter : true)
+        );
+
+        const totalRegistrations = currentEventsData.reduce((sum, d) => sum + (d.registered || 0), 0);
+        const prevRegistrations = previousEventsData.reduce((sum, d) => sum + (d.registered || 0), 0);
+
+        return {
+          value: totalRegistrations,
+          formatted: formatNumber(totalRegistrations),
+          trend: calculateTrend(totalRegistrations, prevRegistrations),
+          previousValue: prevRegistrations
+        };
+      })()
     };
   }, [data, selectedPeriod, selectedYear, compareType]);
 
@@ -776,6 +901,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
             { id: 'seo', label: 'SEO & Search' },
             { id: 'social', label: 'Social Media' },
             { id: 'email', label: 'Email Marketing' },
+            { id: 'events', label: 'Event Marketing' },
             { id: 'leads', label: 'Leads & Pipeline' },
             { id: 'sov', label: 'Share of Voice' },
             { id: 'quarterly', label: 'Quarterly Analysis' },
@@ -951,6 +1077,31 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
                   {compareEnabled && (
                     <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
                       {kpis.previousPeriodLabel}: {kpis.shareOfVoice.previousValue.toFixed(1)}%
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all hover:-translate-y-1 relative">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#005C84] to-[#55A51C] rounded-l-xl" />
+                  <div className="flex items-center text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                    Event Registrations
+                    <InfoTooltip
+                      title="Event Registrations"
+                      description="Total number of people who registered for marketing events during the selected period. This indicates marketing reach and event appeal."
+                      calculation="Sum of all event registrations across all events"
+                      example="Webinars, workshops, conferences, trade shows, and networking events"
+                      icon="info"
+                      position="auto"
+                    />
+                  </div>
+                  <div className="text-3xl font-bold text-gray-900 mb-1">{kpis.eventRegistrations.formatted}</div>
+                  <div className={`flex items-center gap-1 text-sm ${kpis.eventRegistrations.trend.direction === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+                    {kpis.eventRegistrations.trend.direction === 'up' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                    {kpis.eventRegistrations.trend.value.toFixed(1)}% vs {kpis.previousPeriodLabel}
+                  </div>
+                  {compareEnabled && (
+                    <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
+                      {kpis.previousPeriodLabel}: {formatNumber(kpis.eventRegistrations.previousValue)}
                     </div>
                   )}
                 </div>
@@ -1197,7 +1348,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               </div>
 
               {/* Analysis Section */}
-              <AnalysisButton
+              {/* <AnalysisButton
                 onAnalyze={handleAnalysis}
                 loading={analysisLoading}
                 disabled={!data}
@@ -1205,7 +1356,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               <AnalysisResults
                 result={analysisResults[activeTab]}
                 error={analysisErrors[activeTab]}
-              />
+              /> */}
 
             </div>
           )}
@@ -1567,7 +1718,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               </div>
 
               {/* Analysis Section */}
-              <AnalysisButton
+              {/* <AnalysisButton
                 onAnalyze={handleAnalysis}
                 loading={analysisLoading}
                 disabled={!data}
@@ -1575,7 +1726,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               <AnalysisResults
                 result={analysisResults[activeTab]}
                 error={analysisErrors[activeTab]}
-              />
+              /> */}
 
             </div>
           )}
@@ -1839,7 +1990,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               </div>
 
               {/* Analysis Section */}
-              <AnalysisButton
+              {/* <AnalysisButton
                 onAnalyze={handleAnalysis}
                 loading={analysisLoading}
                 disabled={!data}
@@ -1847,7 +1998,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               <AnalysisResults
                 result={analysisResults[activeTab]}
                 error={analysisErrors[activeTab]}
-              />
+              /> */}
 
             </div>
           )}
@@ -2121,7 +2272,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               </div>
 
               {/* Analysis Section */}
-              <AnalysisButton
+              {/* <AnalysisButton
                 onAnalyze={handleAnalysis}
                 loading={analysisLoading}
                 disabled={!data}
@@ -2129,7 +2280,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               <AnalysisResults
                 result={analysisResults[activeTab]}
                 error={analysisErrors[activeTab]}
-              />
+              /> */}
 
             </div>
           )}
@@ -2330,7 +2481,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               </div>
 
               {/* Analysis Section */}
-              <AnalysisButton
+              {/* <AnalysisButton
                 onAnalyze={handleAnalysis}
                 loading={analysisLoading}
                 disabled={!data}
@@ -2338,8 +2489,33 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               <AnalysisResults
                 result={analysisResults[activeTab]}
                 error={analysisErrors[activeTab]}
+              /> */}
+
+            </div>
+          )}
+
+          {/* Event Marketing Tab */}
+          {activeTab === 'events' && data && (
+            <div id="tab-content-events" className="space-y-8 animate-fadeIn">
+              <EventsChart
+                data={data.eventsData || []}
+                period={{
+                  year: selectedYear,
+                  quarter: selectedPeriod === 'Year' ? undefined : selectedPeriod
+                }}
+                detailed={true}
               />
 
+              {/* Analysis Section */}
+              {/* <AnalysisButton
+                onAnalyze={handleAnalysis}
+                loading={analysisLoading}
+                disabled={!data}
+              />
+              <AnalysisResults
+                result={analysisResults[activeTab]}
+                error={analysisErrors[activeTab]}
+              /> */}
             </div>
           )}
 
@@ -2795,7 +2971,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               })()}
 
               {/* Analysis Section */}
-              <AnalysisButton
+              {/* <AnalysisButton
                 onAnalyze={handleAnalysis}
                 loading={analysisLoading}
                 disabled={!data}
@@ -2803,7 +2979,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               <AnalysisResults
                 result={analysisResults[activeTab]}
                 error={analysisErrors[activeTab]}
-              />
+              /> */}
 
             </div>
           )}
@@ -3280,7 +3456,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               </div>
 
               {/* Analysis Section */}
-              <AnalysisButton
+              {/* <AnalysisButton
                 onAnalyze={handleAnalysis}
                 loading={analysisLoading}
                 disabled={!data}
@@ -3288,7 +3464,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               <AnalysisResults
                 result={analysisResults[activeTab]}
                 error={analysisErrors[activeTab]}
-              />
+              /> */}
 
             </div>
           )}
@@ -3459,7 +3635,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               </div>
 
               {/* Analysis Section */}
-              <AnalysisButton
+              {/* <AnalysisButton
                 onAnalyze={handleAnalysis}
                 loading={analysisLoading}
                 disabled={!data}
@@ -3467,7 +3643,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               <AnalysisResults
                 result={analysisResults[activeTab]}
                 error={analysisErrors[activeTab]}
-              />
+              /> */}
 
             </div>
           )}
@@ -3726,7 +3902,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               </div>
 
               {/* Analysis Section */}
-              <AnalysisButton
+              {/* <AnalysisButton
                 onAnalyze={handleAnalysis}
                 loading={analysisLoading}
                 disabled={!data}
@@ -3734,7 +3910,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ initialData }) 
               <AnalysisResults
                 result={analysisResults[activeTab]}
                 error={analysisErrors[activeTab]}
-              />
+              /> */}
 
             </div>
           )}
