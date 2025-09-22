@@ -77,11 +77,14 @@ class DataService {
         this.notifyListeners(transformedData);
 
         console.log('Data loaded successfully from API server');
+        console.log('Transformed data keys:', Object.keys(transformedData));
         console.log('Transformed data structure:', {
           config: transformedData.config,
-          websiteDataCount: transformedData.websiteData.length,
-          hasTargets: transformedData.targets.length > 0
+          websiteDataCount: transformedData.websiteData?.length || 0,
+          eventsDataCount: transformedData.eventsData?.length || 0,
+          hasTargets: (transformedData.targets?.length || 0) > 0
         });
+        console.log('Events data first few entries:', transformedData.eventsData?.slice(0, 3));
         return transformedData;
       } else {
         console.error('Failed to load data from API server');
@@ -140,6 +143,7 @@ class DataService {
       searchData: this.parseSearchData(sheets.Search_Data || []),
       socialData: this.parseSocialData(sheets.Social_Data || []),
       emailData: this.parseEmailData(sheets.Email_Data || []),
+      eventsData: this.parseEventsData(sheets.Events_Data || []),
       leadsData: this.parseLeadsData(sheets.Leads_Data || []),
       shareOfVoiceData: this.parseShareOfVoiceData(sheets.Share_of_voice || []),
       targets: this.parseTargets(sheets.Targets || []),
@@ -315,7 +319,23 @@ class DataService {
       conversionRate: this.parseNumber(row.Conversion_Rate)
     }));
   }
-  
+
+  private parseEventsData(data: any[]): any[] {
+    return data.map(row => ({
+      year: Number(row.Year),
+      quarter: row.Quarter,
+      month: Number(row.Month),
+      monthName: row.Month_Name,
+      numberEvents: this.parseNumber(row.Number_Events),
+      registered: this.parseNumber(row.Registered),
+      attended: this.parseNumber(row.Attended),
+      mql: this.parseNumber(row.MQL),
+      sal: this.parseNumber(row.SAL),
+      opportunity: this.parseNumber(row.Opportunity),
+      source: row.Source || null
+    }));
+  }
+
   private parseLeadsData(data: any[]): any[] {
     return data.map(row => ({
       year: Number(row.Year),

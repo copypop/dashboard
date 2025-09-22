@@ -1,13 +1,14 @@
 import * as XLSX from 'xlsx';
-import type { 
-  DashboardData, 
-  WebsiteData, 
-  TrafficSource, 
-  SearchData, 
-  SocialData, 
-  EmailData, 
-  LeadsData, 
-  Target, 
+import type {
+  DashboardData,
+  WebsiteData,
+  TrafficSource,
+  SearchData,
+  SocialData,
+  EmailData,
+  EventsData,
+  LeadsData,
+  Target,
   Config,
   Note
 } from '../types/dashboard';
@@ -29,6 +30,7 @@ export class DataProcessor {
             searchData: this.parseSearchData(workbook),
             socialData: this.parseSocialData(workbook),
             emailData: this.parseEmailData(workbook),
+            eventsData: this.parseEventsData(workbook),
             leadsData: this.parseLeadsData(workbook),
             shareOfVoiceData: [], // Add empty array for now
             targets: this.parseTargets(workbook),
@@ -47,6 +49,14 @@ export class DataProcessor {
   }
 
   static transformServerData(serverData: Record<string, any[]>): DashboardData {
+    console.log('DataProcessor - serverData keys:', Object.keys(serverData));
+    console.log('DataProcessor - Events_Data length:', serverData.Events_Data?.length || 0);
+    console.log('DataProcessor - Events_Data sample:', serverData.Events_Data?.slice(0, 2));
+
+    const eventsData = this.parseEventsDataFromJSON(serverData.Events_Data || []);
+    console.log('DataProcessor - parsed eventsData length:', eventsData.length);
+    console.log('DataProcessor - parsed eventsData sample:', eventsData.slice(0, 2));
+
     return {
       config: this.parseConfigFromJSON(serverData.Config || []),
       websiteData: this.parseWebsiteDataFromJSON(serverData.Website_Data || []),
@@ -54,6 +64,7 @@ export class DataProcessor {
       searchData: this.parseSearchDataFromJSON(serverData.Search_Data || []),
       socialData: this.parseSocialDataFromJSON(serverData.Social_Data || []),
       emailData: this.parseEmailDataFromJSON(serverData.Email_Data || []),
+      eventsData: eventsData,
       leadsData: this.parseLeadsDataFromJSON(serverData.Leads_Data || []),
       shareOfVoiceData: this.parseShareOfVoiceDataFromJSON(serverData.Share_of_voice || []),
       targets: this.parseTargetsFromJSON(serverData.Targets || []),
@@ -191,7 +202,28 @@ export class DataProcessor {
       unsubscribes: this.parseNumber(row['Unsubscribes'])
     }));
   }
-  
+
+  private static parseEventsData(workbook: XLSX.WorkBook): EventsData[] {
+    const sheet = workbook.Sheets['Events_Data'];
+    if (!sheet) return [];
+
+    const json = XLSX.utils.sheet_to_json(sheet);
+
+    return (json as any[]).map((row: any) => ({
+      year: Number(row['Year']),
+      quarter: row['Quarter'],
+      month: Number(row['Month']),
+      monthName: row['Month_Name'],
+      numberEvents: this.parseNumber(row['Number_Events']),
+      registered: this.parseNumber(row['Registered']),
+      attended: this.parseNumber(row['Attended']),
+      mql: this.parseNumber(row['MQL']),
+      sal: this.parseNumber(row['SAL']),
+      opportunity: this.parseNumber(row['Opportunity']),
+      source: row['Source'] || null
+    }));
+  }
+
   private static parseLeadsData(workbook: XLSX.WorkBook): LeadsData[] {
     const sheet = workbook.Sheets['Leads_Data'];
     if (!sheet) return [];
@@ -370,6 +402,22 @@ export class DataProcessor {
       softBounces: this.parseNumber(row.Soft_Bounces),
       unsubscribes: this.parseNumber(row.Unsubscribes),
       conversionRate: this.parseNumber(row.Conversion_Rate)
+    }));
+  }
+
+  private static parseEventsDataFromJSON(data: any[]): EventsData[] {
+    return data.map((row: any) => ({
+      year: Number(row.Year),
+      quarter: row.Quarter,
+      month: Number(row.Month),
+      monthName: row.Month_Name,
+      numberEvents: this.parseNumber(row.Number_Events),
+      registered: this.parseNumber(row.Registered),
+      attended: this.parseNumber(row.Attended),
+      mql: this.parseNumber(row.MQL),
+      sal: this.parseNumber(row.SAL),
+      opportunity: this.parseNumber(row.Opportunity),
+      source: row.Source || null
     }));
   }
 
