@@ -93,6 +93,20 @@ export interface LeadsData {
   pipelineValue: number | null;
 }
 
+export interface EventsData {
+  year: number;
+  quarter: string;
+  month: number;
+  monthName: string;
+  numberEvents: number | null;
+  registered: number | null;
+  attended: number | null;
+  mql: number | null;
+  sal: number | null;
+  opportunity: number | null;
+  source: string | null;
+}
+
 export interface Target {
   metricCategory: string;
   metricName: string;
@@ -129,6 +143,7 @@ export interface DashboardData {
   searchData: SearchData[];
   socialData: SocialData[];
   emailData: EmailData[];
+  eventsData: EventsData[];
   leadsData: LeadsData[];
   shareOfVoiceData: ShareOfVoiceData[];
   targets: Target[];
