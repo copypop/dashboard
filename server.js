@@ -4,6 +4,11 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import XLSX from 'xlsx';
+import Anthropic from '@anthropic-ai/sdk';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,6 +18,11 @@ const PORT = 8000;
 
 // Excel file path - UPDATE THIS TO YOUR EXCEL FILE LOCATION
 const EXCEL_FILE_PATH = path.join(__dirname, 'public', 'CAAT_Dashboard_Data_2025.xlsx');
+
+// Initialize Anthropic client
+const anthropic = new Anthropic({
+  apiKey: process.env.CLAUDE_API_KEY,
+});
 
 app.use(cors());
 app.use(express.json());
@@ -49,6 +59,61 @@ function readExcelFile() {
   } catch (error) {
     console.error('Error reading Excel file:', error);
     return null;
+  }
+}
+
+// Function to generate analysis prompts for different tab types
+function getAnalysisPrompt(tabType, data, period, targets, compareMode, comparisonData) {
+  const baseContext = `You are analyzing marketing data for CAAT Pension Plan for ${period.quarter} ${period.year}.
+CAAT is a pension plan provider, so focus on insights relevant to financial services marketing.
+Provide executive-level insights including trends, anomalies, performance vs targets, and actionable recommendations.
+Keep your response concise but insightful, suitable for marketing leadership.`;
+
+  const dataContext = `Data for analysis:\n${JSON.stringify(data, null, 2)}`;
+
+  let targetContext = '';
+  if (targets && Object.keys(targets).length > 0) {
+    targetContext = `\nPerformance targets:\n${JSON.stringify(targets, null, 2)}`;
+  }
+
+  let comparisonContext = '';
+  if (compareMode && comparisonData) {
+    comparisonContext = `\nComparison data (previous period):\n${JSON.stringify(comparisonData, null, 2)}`;
+  }
+
+  const tabSpecificPrompts = {
+    overview: `Focus on overall performance across all channels. Highlight key wins, areas of concern, and strategic recommendations.`,
+    website: `Analyze website traffic patterns, user behavior metrics, bounce rates, and session quality. Consider seasonal trends and user engagement.`,
+    traffic: `Examine traffic source effectiveness, channel performance, and acquisition costs. Identify the most valuable traffic sources.`,
+    social: `Review social media engagement trends, channel performance, content effectiveness, and audience growth across platforms.`,
+    email: `Assess email marketing campaign performance, deliverability rates, engagement metrics, and subscriber behavior patterns.`,
+    leads: `Evaluate lead generation pipeline health, conversion rates, lead quality metrics, and sales funnel performance.`
+  };
+
+  const specificPrompt = tabSpecificPrompts[tabType] || tabSpecificPrompts.overview;
+
+  return `${baseContext}\n\n${specificPrompt}\n\n${dataContext}${targetContext}${comparisonContext}`;
+}
+
+// Function to call Claude API for analysis
+async function getClaudeAnalysis(prompt) {
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 1000,
+      temperature: 0.3,
+      messages: [
+        {
+          role: 'user',
+          content: prompt
+        }
+      ]
+    });
+
+    return message.content[0].text;
+  } catch (error) {
+    console.error('Error calling Claude API:', error);
+    throw new Error('Failed to generate analysis');
   }
 }
 
@@ -103,6 +168,55 @@ app.get('/api/status', (req, res) => {
     lastModified,
     hasData: fileExists
   });
+});
+
+// API endpoint for AI analysis
+app.post('/api/analyze', async (req, res) => {
+  console.log('Analysis API call received...');
+
+  try {
+    const { tabType, data, period, targets, compareMode, comparisonData } = req.body;
+
+    // Validate required fields
+    if (!tabType || !data || !period) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        message: 'tabType, data, and period are required'
+      });
+    }
+
+    // Check if Claude API key is configured
+    if (!process.env.CLAUDE_API_KEY) {
+      return res.status(500).json({
+        error: 'Claude API key not configured',
+        message: 'Please set CLAUDE_API_KEY environment variable'
+      });
+    }
+
+    console.log(`Generating analysis for ${tabType} tab, period: ${period.quarter} ${period.year}`);
+
+    // Generate prompt based on tab type and data
+    const prompt = getAnalysisPrompt(tabType, data, period, targets, compareMode, comparisonData);
+
+    // Call Claude API
+    const analysis = await getClaudeAnalysis(prompt);
+
+    console.log('Analysis generated successfully');
+
+    res.json({
+      analysis,
+      tabType,
+      period,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error in analysis endpoint:', error);
+    res.status(500).json({
+      error: 'Analysis failed',
+      message: error.message
+    });
+  }
 });
 
 // Start the Express server

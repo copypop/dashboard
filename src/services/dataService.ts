@@ -1,6 +1,28 @@
 import * as XLSX from 'xlsx';
 import type { DashboardData } from '../types/dashboard';
 
+interface AnalysisRequest {
+  tabType: string;
+  data: any;
+  period: {
+    year: number;
+    quarter: string;
+  };
+  targets?: any;
+  compareMode?: boolean;
+  comparisonData?: any;
+}
+
+interface AnalysisResponse {
+  analysis: string;
+  tabType: string;
+  period: {
+    year: number;
+    quarter: string;
+  };
+  timestamp: string;
+}
+
 class DataService {
   private cachedData: DashboardData | null = null;
   private lastUpdateTime: Date | null = null;
@@ -345,7 +367,34 @@ class DataService {
       note: row.Note
     }));
   }
-  
+
+  // AI Analysis method
+  public async getAnalysis(request: AnalysisRequest): Promise<AnalysisResponse> {
+    try {
+      console.log('Requesting AI analysis for:', request.tabType, request.period);
+
+      const response = await fetch('http://localhost:8000/api/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Analysis failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Analysis completed successfully');
+      return result;
+    } catch (error) {
+      console.error('Error getting analysis:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to get analysis');
+    }
+  }
+
   private parseNumber(value: any): number | null {
     if (value === null || value === undefined || value === '' || isNaN(value)) {
       return null;

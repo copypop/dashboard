@@ -13,6 +13,7 @@
     "dashboard": "npm run start"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.63.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-select": "^2.2.6",
@@ -23,6 +24,7 @@
     "clsx": "^2.1.1",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "file-saver": "^2.0.5",
     "html2canvas": "^1.4.1",

@@ -5,13 +5,15 @@ import { TrafficSourcesChart } from './charts/TrafficSourcesChart';
 import { SocialMediaChart } from './charts/SocialMediaChart';
 import { EmailChart } from './charts/EmailChart';
 import { PeriodSelector } from './PeriodSelector';
+import { AnalysisButton } from './AnalysisButton';
+import { AnalysisResults } from './AnalysisResults';
 import { useDashboardStore } from '../store/dashboardStore';
 import { DataProcessor } from '../utils/dataProcessor';
 import { dataService } from '../services/dataService';
 import { cn } from '@/lib/utils';
-import { 
-  Users, 
-  Eye, 
+import {
+  Users,
+  Eye,
   MousePointer
 } from 'lucide-react';
 
@@ -28,6 +30,9 @@ export const Dashboard: React.FC = () => {
   } = useDashboardStore();
 
   const [activeTab, setActiveTab] = useState('overview');
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   const loadDataFromServer = async () => {
     setLoading(true);
@@ -111,6 +116,120 @@ export const Dashboard: React.FC = () => {
       }
     };
   };
+
+  const handleAnalysis = async () => {
+    if (!data || !selectedPeriod.year || !selectedPeriod.quarter) {
+      setAnalysisError('No data available for analysis');
+      return;
+    }
+
+    setAnalysisLoading(true);
+    setAnalysisError(null);
+    setAnalysisResult(null);
+
+    try {
+      // Get data specific to the current tab
+      const tabData = getTabSpecificData(activeTab);
+      const targets = getTabTargets(activeTab);
+
+      const analysisRequest = {
+        tabType: activeTab,
+        data: tabData,
+        period: {
+          year: selectedPeriod.year,
+          quarter: selectedPeriod.quarter
+        },
+        targets,
+        compareMode: false, // We can add comparison mode later
+        comparisonData: null
+      };
+
+      const result = await dataService.getAnalysis(analysisRequest);
+      setAnalysisResult(result);
+    } catch (error) {
+      console.error('Analysis failed:', error);
+      setAnalysisError(error instanceof Error ? error.message : 'Analysis failed');
+    } finally {
+      setAnalysisLoading(false);
+    }
+  };
+
+  const getTabSpecificData = (tabType: string) => {
+    if (!data) return null;
+
+    const periodData = {
+      year: selectedPeriod.year,
+      quarter: selectedPeriod.quarter
+    };
+
+    switch (tabType) {
+      case 'overview':
+        return {
+          websiteData: data.websiteData.filter(d =>
+            d.year === periodData.year && d.quarter === periodData.quarter
+          ),
+          trafficSources: data.trafficSources.filter(d =>
+            d.year === periodData.year && d.quarter === periodData.quarter
+          ),
+          summary: getQuarterlyMetrics()
+        };
+      case 'website':
+        return data.websiteData.filter(d =>
+          d.year === periodData.year && d.quarter === periodData.quarter
+        );
+      case 'traffic':
+        return data.trafficSources.filter(d =>
+          d.year === periodData.year && d.quarter === periodData.quarter
+        );
+      case 'social':
+        return data.socialData.filter(d =>
+          d.year === periodData.year && d.quarter === periodData.quarter
+        );
+      case 'email':
+        return data.emailData.filter(d =>
+          d.year === periodData.year && d.quarter === periodData.quarter
+        );
+      case 'leads':
+        return data.leadsData.filter(d =>
+          d.year === periodData.year && d.quarter === periodData.quarter
+        );
+      default:
+        return null;
+    }
+  };
+
+  const getTabTargets = (tabType: string) => {
+    if (!data || !data.targets) return null;
+
+    const quarterKey = `${selectedPeriod.quarter!.toLowerCase()}Target` as any;
+
+    return data.targets
+      .filter(target => {
+        switch (tabType) {
+          case 'website':
+          case 'overview':
+            return target.metricCategory === 'Website';
+          case 'social':
+            return target.metricCategory === 'Social Media';
+          case 'email':
+            return target.metricCategory === 'Email';
+          case 'leads':
+            return target.metricCategory === 'Leads';
+          default:
+            return false;
+        }
+      })
+      .map(target => ({
+        metric: target.metricName,
+        target: target[quarterKey] || target.annualTarget
+      }));
+  };
+
+  // Clear analysis when tab changes
+  useEffect(() => {
+    setAnalysisResult(null);
+    setAnalysisError(null);
+  }, [activeTab, selectedPeriod]);
 
   const metrics = getQuarterlyMetrics();
 
@@ -233,30 +352,85 @@ export const Dashboard: React.FC = () => {
               <TrafficSourcesChart data={data.trafficSources} period={selectedPeriod} />
             </div>
 
+            {/* Analysis Section */}
+            <AnalysisButton
+              onAnalyze={handleAnalysis}
+              loading={analysisLoading}
+              disabled={!data}
+            />
+            <AnalysisResults
+              result={analysisResult}
+              error={analysisError}
+            />
+
           </div>
         )}
 
         {activeTab === 'website' && (
           <div className="space-y-6">
             <WebsiteChart data={data.websiteData} period={selectedPeriod} detailed />
+
+            {/* Analysis Section */}
+            <AnalysisButton
+              onAnalyze={handleAnalysis}
+              loading={analysisLoading}
+              disabled={!data}
+            />
+            <AnalysisResults
+              result={analysisResult}
+              error={analysisError}
+            />
           </div>
         )}
 
         {activeTab === 'traffic' && (
           <div className="space-y-6">
             <TrafficSourcesChart data={data.trafficSources} period={selectedPeriod} detailed />
+
+            {/* Analysis Section */}
+            <AnalysisButton
+              onAnalyze={handleAnalysis}
+              loading={analysisLoading}
+              disabled={!data}
+            />
+            <AnalysisResults
+              result={analysisResult}
+              error={analysisError}
+            />
           </div>
         )}
 
         {activeTab === 'social' && (
           <div className="space-y-6">
             <SocialMediaChart data={data.socialData} period={selectedPeriod} />
+
+            {/* Analysis Section */}
+            <AnalysisButton
+              onAnalyze={handleAnalysis}
+              loading={analysisLoading}
+              disabled={!data}
+            />
+            <AnalysisResults
+              result={analysisResult}
+              error={analysisError}
+            />
           </div>
         )}
 
         {activeTab === 'email' && (
           <div className="space-y-6">
             <EmailChart data={data.emailData} period={selectedPeriod} />
+
+            {/* Analysis Section */}
+            <AnalysisButton
+              onAnalyze={handleAnalysis}
+              loading={analysisLoading}
+              disabled={!data}
+            />
+            <AnalysisResults
+              result={analysisResult}
+              error={analysisError}
+            />
           </div>
         )}
 
