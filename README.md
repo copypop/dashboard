@@ -18,17 +18,18 @@ A comprehensive digital marketing analytics dashboard for CAAT Pension Plan. Thi
 - **Responsive Design**: Works on desktop, tablet, and mobile devices
 
 ### Dashboard Tabs
-- **Executive Summary**: KPIs, trends, and quarterly performance + AI insights
-- **Website Analytics**: Sessions, pageviews, bounce rates, traffic sources + AI analysis
-- **SEO & Search**: Search impressions, clicks, CTR, average position + AI insights
-- **Social Media**: Platform metrics, engagement rates, impressions + AI analysis
-- **Email Marketing**: Campaign performance, open rates, click rates + AI insights
-- **Leads & Pipeline**: Funnel visualization, conversion tracking + AI analysis
-- **Share of Voice**: Market position ranking, competitor comparison + AI insights
-- **Quarterly Analysis**: Cross-platform quarterly summary + AI trends analysis
-- **Year-over-Year**: Annual comparison across all channels + AI strategic insights
+- **Executive Summary**: KPIs, trends, and quarterly performance including Event Registrations
+- **Website Analytics**: Sessions, pageviews, bounce rates, traffic sources
+- **SEO & Search**: Search impressions, clicks, CTR, average position
+- **Social Media**: Platform metrics, engagement rates, impressions
+- **Email Marketing**: Campaign performance, open rates, click rates
+- **Event Marketing**: Registration rates, attendance tracking, lead conversion funnel, event source analysis
+- **Leads & Pipeline**: Funnel visualization, conversion tracking
+- **Share of Voice**: Market position ranking, competitor comparison
+- **Quarterly Analysis**: Cross-platform quarterly summary
+- **Year-over-Year**: Annual comparison across all channels
 
-Each tab includes an **"Analyze with AI"** button that provides CAAT-specific marketing insights, trend analysis, performance recommendations, and strategic guidance powered by Claude AI.
+**Note**: AI analysis features are currently disabled. To re-enable, uncomment the analysis code and configure an AI API provider (Claude or GPT).
 
 ## 📋 Prerequisites
 
@@ -71,8 +72,9 @@ Your Excel file should contain the following sheets:
 - **Search_Data**: SEO and search metrics
 - **Social_Data**: Social media performance
 - **Email_Data**: Email campaign metrics
+- **Events_Data**: Event marketing metrics (registrations, attendance, lead conversion)
 - **Leads_Data**: Lead generation metrics
-- **ShareOfVoice_Data**: Media mentions and competitor analysis
+- **Share_of_voice**: Media mentions and competitor analysis
 - **Notes**: Important notes and context
 
 ## 🎯 Usage
@@ -104,39 +106,43 @@ The dashboard now includes comprehensive period-over-period comparison functiona
 - Automatic calculation of appropriate previous periods
 - Color-coded trend indicators (green=up, red=down, gray=neutral)
 
-### 🤖 AI Analysis Features
+### 🤖 AI Analysis Features (Currently Disabled)
 
-The dashboard includes comprehensive AI-powered analysis using Claude AI to provide actionable marketing insights.
+**Status**: AI analysis features are temporarily disabled due to API credit limitations.
 
-#### **How AI Analysis Works**
-- **Tab-Specific Analysis**: Each dashboard tab has an "Analyze with AI" button
-- **CAAT Context-Aware**: AI understands CAAT Pension Plan's business context
-- **Data-Driven Insights**: Analysis based on actual dashboard data for the selected period
-- **Performance vs Targets**: Compares metrics against quarterly targets when available
-- **Persistent Results**: Analysis persists when switching between tabs within the same session
+#### **Re-enabling AI Analysis**
+To restore AI analysis functionality:
 
-#### **AI Analysis Capabilities**
+1. **Choose AI Provider**:
+   - Option A: Purchase Claude API credits at [Anthropic Console](https://console.anthropic.com/)
+   - Option B: Switch to GPT API by updating server.js configuration
+
+2. **Uncomment Analysis Code**:
+   - Remove comment blocks (`//` and `/* */`) from analysis-related code in `src/components/ExecutiveDashboard.tsx`
+   - Restore imports for `AnalysisButton` and `AnalysisResults` components
+
+3. **Configure Environment**: Add `CLAUDE_API_KEY=your_api_key_here` to your `.env` file
+
+4. **Test Functionality**: Both API server and development server must be running
+
+#### **AI Analysis Capabilities (When Enabled)**
 - **Executive Summary**: Overall performance across all channels with strategic recommendations
 - **Website Analytics**: Traffic patterns, user behavior, bounce rate analysis, and acquisition optimization
 - **SEO & Search**: Search visibility trends, keyword performance, and organic growth opportunities
 - **Social Media**: Engagement analysis, channel performance, content effectiveness, and audience insights
 - **Email Marketing**: Campaign performance, deliverability analysis, and segmentation recommendations
+- **Event Marketing**: Event performance analysis, registration trends, and lead quality assessment
 - **Leads & Pipeline**: Lead quality assessment, conversion funnel optimization, and sales insights
 - **Share of Voice**: Competitive positioning, market share analysis, and brand mention trends
 - **Quarterly Analysis**: Cross-channel performance summary and quarterly goal assessment
 - **Year-over-Year**: Annual growth patterns, seasonal trends, and long-term strategic insights
 
-#### **Setting Up AI Analysis**
-1. **Get Claude API Key**: Visit [Anthropic Console](https://console.anthropic.com/) to get your API key
-2. **Configure Environment**: Add `CLAUDE_API_KEY=your_api_key_here` to your `.env` file
-3. **Start Servers**: Both API server and development server must be running
-4. **Access Analysis**: Click "Analyze with AI" button at the bottom of any dashboard tab
-
-#### **AI Analysis Output**
-- **Executive-Level Insights**: Suitable for marketing leadership and stakeholders
-- **Actionable Recommendations**: Specific next steps and optimization opportunities
-- **Trend Analysis**: Period-over-period performance assessment with anomaly detection
-- **Contextualized Results**: Insights tailored to pension plan marketing objectives
+#### **Analysis Features**
+- **Tab-Specific Analysis**: Each dashboard tab includes analysis capabilities
+- **CAAT Context-Aware**: AI understands CAAT Pension Plan's business context
+- **Data-Driven Insights**: Analysis based on actual dashboard data for the selected period
+- **Performance vs Targets**: Compares metrics against quarterly targets when available
+- **Executive-Level Output**: Suitable for marketing leadership and stakeholders
 
 ## 🏗️ Tech Stack
 
@@ -207,11 +213,12 @@ caat-dashboard/
 - Check Node.js version (18+ required)
 
 **AI Analysis not working:**
-- Ensure `CLAUDE_API_KEY` is set in `.env` file
-- Verify API key is valid at [Anthropic Console](https://console.anthropic.com/)
+- **Current Status**: AI analysis is temporarily disabled (commented out)
+- To re-enable: Uncomment analysis code in `ExecutiveDashboard.tsx`
+- Ensure `CLAUDE_API_KEY` is set in `.env` file or switch to GPT API
+- Verify API key is valid and has sufficient credits
 - Check that both servers are running (dev server + API server)
 - Look for errors in browser console or server logs
-- Ensure data is loaded before running analysis
 
 ## 📈 Data Quality Guidelines
 
