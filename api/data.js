@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import XLSX from 'xlsx';
+import { validateApiKey, checkRateLimit } from './auth.js';
 
 // Function to read and parse Excel file
 function readExcelFile() {
@@ -59,10 +60,18 @@ function readExcelFile() {
 }
 
 export default function handler(req, res) {
-  // Set CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // Set secure CORS headers - restrict to your domain in production
+  const allowedOrigins = process.env.NODE_ENV === 'production'
+    ? [process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://your-app.vercel.app']
+    : ['http://localhost:5173', 'http://localhost:3000'];
+
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -72,6 +81,37 @@ export default function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // Check rate limiting
+  const rateLimitCheck = checkRateLimit(req);
+  if (!rateLimitCheck.allowed) {
+    return res.status(429).json({ error: rateLimitCheck.error });
+  }
+
+  // DEBUG: Log API key validation details
+  console.log('🔐 API KEY VALIDATION DEBUG:');
+  console.log('Request headers:', JSON.stringify(req.headers, null, 2));
+  console.log('Request query:', JSON.stringify(req.query, null, 2));
+  console.log('X-API-Key header:', req.headers['x-api-key']);
+  console.log('Expected API key from env:', process.env.DASHBOARD_API_KEY);
+  console.log('Environment DASHBOARD_API_KEY available:', !!process.env.DASHBOARD_API_KEY);
+  console.log('Environment DASHBOARD_API_KEY length:', process.env.DASHBOARD_API_KEY?.length || 0);
+  console.log('Environment DASHBOARD_API_KEY first 10 chars:', process.env.DASHBOARD_API_KEY?.substring(0, 10) || 'none');
+
+  // Validate API key
+  const apiKeyValidation = validateApiKey(req);
+  console.log('API key validation result:', apiKeyValidation);
+
+  if (!apiKeyValidation.valid) {
+    console.log('❌ API KEY VALIDATION FAILED');
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: apiKeyValidation.error,
+      hint: 'Include X-API-Key header or ?key= parameter'
+    });
+  }
+
+  console.log('✅ API KEY VALIDATION PASSED');
 
   const { endpoint } = req.query;
 

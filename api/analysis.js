@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { validateApiKey, checkRateLimit, validateAnalysisInput } from './auth.js';
 
 // Function to generate analysis prompts for different tab types
 function getAnalysisPrompt(tabType, data, period, targets, compareMode, comparisonData) {
@@ -67,10 +68,18 @@ async function getClaudeAnalysis(prompt) {
 }
 
 export default async function handler(req, res) {
-  // Set CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // Set secure CORS headers - restrict to your domain in production
+  const allowedOrigins = process.env.NODE_ENV === 'production'
+    ? [process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://your-app.vercel.app']
+    : ['http://localhost:5173', 'http://localhost:3000'];
+
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -81,16 +90,33 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Check rate limiting
+  const rateLimitCheck = checkRateLimit(req);
+  if (!rateLimitCheck.allowed) {
+    return res.status(429).json({ error: rateLimitCheck.error });
+  }
+
+  // Validate API key
+  const apiKeyValidation = validateApiKey(req);
+  if (!apiKeyValidation.valid) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: apiKeyValidation.error,
+      hint: 'Include X-API-Key header or ?key= parameter'
+    });
+  }
+
   console.log('Analysis API call received...');
 
   try {
     const { tabType, data, period, targets, compareMode, comparisonData } = req.body;
 
-    // Validate required fields
-    if (!tabType || !data || !period) {
+    // Validate input
+    const inputValidation = validateAnalysisInput(req.body);
+    if (!inputValidation.valid) {
       return res.status(400).json({
-        error: 'Missing required fields',
-        message: 'tabType, data, and period are required'
+        error: 'Invalid input',
+        message: inputValidation.error
       });
     }
 

@@ -1,33 +1,15 @@
 {
-  "version": 2,
-  "framework": "vite",
   "buildCommand": "npm run build:vercel",
   "outputDirectory": "dist",
   "installCommand": "npm install",
-  "functions": {
-    "api/data.js": {
-      "runtime": "nodejs18.x"
-    },
-    "api/analysis.js": {
-      "runtime": "nodejs18.x"
-    }
-  },
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/dashboard-data",
-      "dest": "/api/data"
+      "source": "/api/dashboard-data",
+      "destination": "/api/data"
     },
     {
-      "src": "/api/status",
-      "dest": "/api/data?endpoint=status"
-    },
-    {
-      "src": "/api/analyze",
-      "dest": "/api/analysis"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/api/status",
+      "destination": "/api/data?endpoint=status"
     }
   ],
   "headers": [
@@ -60,8 +42,5 @@
         }
       ]
     }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  ]
 }

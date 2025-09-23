@@ -33,6 +33,33 @@ class DataService {
     this.loadFromCache();
   }
 
+  // Get API headers with authentication
+  private getApiHeaders(): HeadersInit {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json'
+    };
+
+    // Get API key from environment variable
+    const apiKey = import.meta.env.VITE_DASHBOARD_API_KEY;
+
+    // DEBUG: Log API key information
+    console.log('🔑 API KEY DEBUG:');
+    console.log('VITE_DASHBOARD_API_KEY available:', !!apiKey);
+    console.log('API key value:', apiKey);
+    console.log('API key length:', apiKey?.length || 0);
+    console.log('First 10 chars:', apiKey?.substring(0, 10) || 'none');
+
+    if (apiKey) {
+      headers['X-API-Key'] = apiKey;
+      console.log('✅ API key added to headers');
+    } else {
+      console.log('❌ No API key found - requests will fail!');
+    }
+
+    console.log('Final headers:', headers);
+    return headers;
+  }
+
   // Subscribe to data changes
   public onDataChange(callback: (data: DashboardData) => void): () => void {
     this.dataChangeListeners.push(callback);
@@ -62,9 +89,20 @@ class DataService {
   // Load data from API server
   public async loadFromServer(): Promise<DashboardData | null> {
     try {
-      console.log('Loading data from API server...');
+      console.log('📡 LOADING DATA FROM API SERVER...');
 
-      const response = await fetch('http://localhost:8000/api/dashboard-data');
+      const headers = this.getApiHeaders();
+      console.log('🌐 Making request to: /api/dashboard-data');
+      console.log('📋 Request headers:', headers);
+
+      const response = await fetch('/api/dashboard-data', {
+        headers: headers
+      });
+
+      console.log('📥 Response received:');
+      console.log('Status:', response.status);
+      console.log('Status Text:', response.statusText);
+      console.log('Headers:', Object.fromEntries(response.headers.entries()));
 
       if (response.ok) {
         const result = await response.json();
@@ -200,7 +238,9 @@ class DataService {
     try {
       console.log('Refreshing data from API server...');
 
-      const response = await fetch('http://localhost:8000/api/dashboard-data');
+      const response = await fetch('/api/dashboard-data', {
+        headers: this.getApiHeaders()
+      });
 
       if (response.ok) {
         const result = await response.json();
@@ -393,11 +433,9 @@ class DataService {
     try {
       console.log('Requesting AI analysis for:', request.tabType, request.period);
 
-      const response = await fetch('http://localhost:8000/api/analyze', {
+      const response = await fetch('/api/analyze', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.getApiHeaders(),
         body: JSON.stringify(request),
       });
 

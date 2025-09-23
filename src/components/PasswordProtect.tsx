@@ -18,7 +18,7 @@ const PasswordProtect: React.FC<PasswordProtectProps> = ({ children }) => {
     const checkAuth = () => {
       const authToken = localStorage.getItem('dashboard-auth');
       const authExpiry = localStorage.getItem('dashboard-auth-expiry');
-      
+
       if (authToken && authExpiry) {
         const expiryTime = parseInt(authExpiry, 10);
         if (Date.now() < expiryTime) {
@@ -79,14 +79,14 @@ const PasswordProtect: React.FC<PasswordProtectProps> = ({ children }) => {
     try {
       // Hash the password client-side
       const hashedPassword = await hashPassword(password);
-      
+
       // In production, this should be compared against a secure backend
       // For demo purposes, we're using environment variable check
       // You should set VITE_DASHBOARD_PASSWORD_HASH in your .env file
-      const correctHash = import.meta.env.VITE_DASHBOARD_PASSWORD_HASH || 
+      const correctHash = import.meta.env.VITE_DASHBOARD_PASSWORD_HASH ||
         // Default hash for "CAATdashboard2025!" - CHANGE THIS IN PRODUCTION
         '7f2c5a4b8e9d3f6a1c8b5d2e7a4f9c6b3e8a5d2f7c9b4e6a1d3f8c5b2a7e9d4f';
-      
+
       if (hashedPassword === correctHash) {
         // Generate a random token
         const token = crypto.randomUUID();
